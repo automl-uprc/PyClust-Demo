@@ -1,3 +1,4 @@
+import gradio.utils
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.datasets import make_blobs, make_moons
@@ -8,12 +9,8 @@ def load_csv(file, csv_options):
     """
 
     Args:
-        succes_row ():
-        row_1 ():
-        msg ():
-        row_2 ():
-        file ():
-        csv_options ():
+        file (gradio.utils.NamedString):
+        csv_options (list):
 
     Returns:
 
@@ -24,14 +21,14 @@ def load_csv(file, csv_options):
     else:
         headers = None
     try:
-        if file is None:
-            return "No file uploaded", None
         df_ = pd.read_csv(file.name, header=headers)
         if 'Scale Data' in csv_options:
             ms = MinMaxScaler()
             df_ = ms.fit_transform(df_)
-        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(
-            visible=True), f"<h1 style='text-align: center; color: blue;'> Data Loaded Successfully with shape: ({df_.shape[0]},{df_.shape[1]}) !</h1>", df_
+        return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False),
+                gr.update(visible=True),
+                f"<h1 style='text-align: center; color: blue;'> Data Loaded Successfully with shape: ({df_.shape[0]},"
+                f"{df_.shape[1]}) !</h1>", df_)
     except Exception as e:
         return str(e), None
 

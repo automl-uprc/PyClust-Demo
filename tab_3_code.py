@@ -11,46 +11,160 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
 
-sys.path.append(r"C:\Users\giann\OneDrive\Έγγραφα\GitHub\cvi")
-from pyclust_eval import CVIToolbox
-from pyclust_eval.core._shared_processes import common_operations
-from pyclust_eval.core._adg_operations import visualize_subgraph_as_tree
+from sklearn.manifold import MDS, TSNE
+from sklearn.decomposition import PCA
+import ast
+import matplotlib.colors as mcolors
 
-cvi_list = list(CVIToolbox(np.array([1,2]), np.array([1,2])).cvi_methods_list.keys())
 
-def calculate_cvi(x, y, cvi_search_type, custom_set):
-    x = np.array(x)
-    y = np.array(y)
-    if cvi_search_type.lower() == 'all':
-        start_time = time.time()
-        cvit = CVIToolbox(x, y)
-        cvit.calculate_icvi(cvi="all")
-        return cvit.cvi_results
+
+
+algorithm_params = {"KMeans": {
+    "parameters": ["n_clusters", "algorithm", "max_iter", "init"],
+    "param_positions": [0, 4],
+    "method": KMeans
+},
+    "DBSCAN": {
+        "parameters": ["eps", "min_samples", "metric"],
+        "param_positions": [4, 7],
+        "method": DBSCAN
+    }}
+
+
+def select_option(tickbox_1, tickbox_2, best_config_browse):
+    """
+    Function to control configuration selection in the UI. There can only be one tickbox selected or neither.
+    Args:
+        tickbox_1 (bool):
+        tickbox_2 (bool):
+        best_config_browse ():
+
+    Returns:
+
+    """
+    if tickbox_1 is False and tickbox_2 is False:
+        return best_config_browse["labels"], gr.update(value=False), gr.update(value=False)
     else:
-        cvi = custom_set
-        start_time = time.time()
-        cvit = CVIToolbox(x, y)
-        cvit.calculate_icvi(cvi=cvi)
-        return cvit.cvi_results
+        return best_config_browse["labels"], gr.update(value=False), gr.update(value=True)
 
 
-def find_best_per_cvi(results_dict):
+def statistics_per_cluster(df, labels):
+    df["Label"] = labels
+    all_stats = []
 
-    best_config_per_cvi = {}
-    all_configs = []
+    # Loop through each cluster
+    for label, df_cluster in df.groupby("Label"):
+        df_cluster = df_cluster.drop(columns=["Label"])  # Remove the label column for stats calculation
 
-    for key in results_dict:
-        for item in results_dict[key]:
-            item["algorithm"] = key
-        all_configs += results_dict[key]
+        # Compute statistics for the current cluster, per feature
+        stats_df = pd.DataFrame({
+            "mean": df_cluster.mean(),
+            "std": df_cluster.std(),
+            "min": df_cluster.min(),
+            "max": df_cluster.max(),
+            "median": df_cluster.median(),
+            "var": df_cluster.var(),
+            "skew": df_cluster.skew(),
+            "kurt": df_cluster.kurtosis(),
+        })
 
-    for cvi in cvi_list:
-        try:
-            best_config_per_cvi[cvi] = max(all_configs, key=lambda x: x["cvi"][cvi])
-        except:
-            continue
+        # Add a column to indicate the cluster label
+        stats_df["Cluster"] = label
 
-    return best_config_per_cvi
+        # Add the feature names as an index
+        stats_df["Feature"] = stats_df.index
+
+        # Append the stats for this cluster to the list
+        all_stats.append(stats_df)
+
+    # Concatenate all cluster stats into a single DataFrame
+    final_stats_df = pd.concat(all_stats).reset_index(drop=True)
+
+    # Return the combined statistics as a single DataFrame
+    return gr.Dataframe(final_stats_df)
+
+
+def retrieve_config(algorithm, params_dict, master_results):
+    """
+
+    Args:
+        algorithm ():
+        params_dict ():
+        master_results ():
+
+    Returns:
+
+    """
+    for dict_ in master_results[algorithm]:
+        if dict_["params"] == params_dict:
+            return dict_
+
+
+def multiple_algorithm_options_to_dict(algorithm, algorithm_options):
+    param_names = algorithm_params[algorithm]["parameters"]
+    param_values = algorithm_options[algorithm_params[algorithm]["param_positions"][0]:
+                                     algorithm_params[algorithm]["param_positions"][1] + 1]
+    params_dict = dict(zip(param_names, param_values))
+    return params_dict
+
+
+def dimensionality_reduction(df, method, df_reduced):
+    methods = {"T-SNE": TSNE, "PCA": PCA, "MDS": MDS}
+    if df_reduced[method] is None:
+        df_reduced[method] = methods[method](n_components=2).fit_transform(df)
+        return df_reduced, gr.update(visible=True,
+                                     value="First Trying Applying This Method, it may take a while for big "
+                                           "datasets")
+    else:
+        return df_reduced, gr.update(visible=False)
+
+
+def serve_clustering_visualization(master_results, df, df_reduced, method, option_1, option_2, config, algorithm,
+                                   *params):
+    """
+
+    Args:
+        master_results ():
+        df_reduced ():
+        method ():
+        option_1 (bool): config by best of ES
+        option_2 (bool): manual configuration
+        config ():
+        algorithm ():
+        *params ():
+
+    Returns:
+
+    """
+
+    data = np.array(df_reduced[method])
+    if option_1:
+        config = config.split("\n")
+        algorithm = config[0].split(":")[1].replace(" ", "")
+        parameters = ast.literal_eval(config[1].split("Parameters:")[1])
+
+        # Retrieve full config
+        full_config = retrieve_config(algorithm=algorithm, params_dict=parameters, master_results=master_results)
+        labels = full_config["labels"]
+        print(labels)
+
+    cmap = plt.cm.get_cmap("viridis", len(np.unique(labels)))
+    norm = mcolors.BoundaryNorm(np.arange(-0.5, len(np.unique(labels)), 1), cmap.N)
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(data[:, 0], data[:, 1], c=labels, cmap=cmap, norm=norm, s=50)
+    plt.colorbar(scatter, ticks=np.unique(labels))
+    plt.title("2D Dataset with Colors Based on Labels")
+    plt.xlabel("Feature 1")
+    plt.ylabel("Feature 2")
+    plt.grid(True)
+    plt.savefig("clusters_visualized.png")
+    return "clusters_visualized.png"
+
+
+
+
+
+
 
 
 def return_best_cvi_config(best_config_per_cvi, cvi):
@@ -63,129 +177,10 @@ def return_best_cvi_config(best_config_per_cvi, cvi):
     Returns:
 
     """
-    return f"Algorithm: {best_config_per_cvi[cvi]['algorithm']}\nParameters: {best_config_per_cvi[cvi]['params']}"
+    return (best_config_per_cvi[cvi],
+            f"Algorithm: {best_config_per_cvi[cvi]['algorithm']}\nParameters: {best_config_per_cvi[cvi]['params']}")
 
 
-
-def create_plots_from_es(results_dict):
-    params_df = pd.DataFrame()
-    cvi_df = pd.DataFrame()
-    labels_list = []
-    for key in results_dict:
-        cvi_dict_list = [x["cvi"] for x in results_dict[key]]
-        params_dict_list = [x["params"] for x in results_dict[key]]
-        labels_list += [x["labels"] for x in results_dict[key]]
-
-        cvi_df = pd.concat([cvi_df, pd.DataFrame().from_records(cvi_dict_list)])
-        params_df_temp = pd.DataFrame().from_records(params_dict_list)
-        params_df_temp["algorithm"] = key
-        params_df = pd.concat([params_df, params_df_temp])
-        print("pc -2---------------------------------------------------------")
-        print(params_df)
-        print(cvi_df)
-        print("pc -2---------------------------------------------------------")
-    params_df = params_df.reset_index()
-    cvi_df = cvi_df.reset_index()
-
-    best_alg_count = []
-    no_clusters_found_per_best = []
-    for cvi in list(cvi_df.columns):
-        try:
-            print(list(cvi_df.columns))
-            print(cvi)
-            print(cvi_df[cvi].idxmax())
-            max_cvi_idx = cvi_df[cvi].idxmax()
-            max_row = params_df.loc[max_cvi_idx]
-            no_clusters_found_per_best.append(len(np.unique(labels_list[max_cvi_idx])))
-            print("pc -3---------------------------------------------------------")
-            print(max_row)
-            print("pc -3---------------------------------------------------------")
-            best_alg_count.append(max_row['algorithm'])
-        except:
-            continue
-
-
-    print(best_alg_count)
-    counter = Counter(best_alg_count)
-    labels = list(counter.keys())
-    values = list(counter.values())
-
-    # First Plot: Pie Chart
-    plt.figure(figsize=(6, 6))
-    plt.title("Histogram of Values")
-    plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=90)
-    plt.axis('equal')
-    plt.savefig("best_alg_pie.png")
-    plt.close()
-
-    # First Plot: Pie Chart
-    plt.figure(figsize=(6, 6))
-    plt.hist(no_clusters_found_per_best, bins=range(2, 22), edgecolor='black')
-    plt.xticks(range(0, 22))
-    # Add labels and title
-    plt.title("Histogram of Values")
-    plt.xlabel("Value")
-    plt.ylabel("Frequency")
-    plt.savefig("no_clusters_hist.png")
-    plt.close()
-
-
-
-def exhaustive_search(master_results, df, json_input, idx_search_type, idx_custom_set):
-    print(idx_search_type, idx_custom_set)
-    clustering_methods = {"KMeans": KMeans, "DBSCAN": DBSCAN}
-    json_input = json.loads(json_input)
-
-    try:
-        for key in json_input:
-            for key_ in json_input[key]:
-                if type(json_input[key][key_]) is list and type(json_input[key][key_][0]) is int:
-                    json_input[key][key_] = list(
-                        range(json_input[key][key_][0], json_input[key][key_][1], 1))
-                elif type(json_input[key][key_]) is list and type(json_input[key][key_][0]) is float:
-                    json_input[key][key_] = list(
-                        np.arange(json_input[key][key_][0], json_input[key][key_][1], 1))
-                elif type(json_input[key][key_]) is not list:
-                    json_input[key][key_] = [json_input[key][key_]]
-
-        param_spaces = {}
-        results_df_ = {}
-
-        for key in json_input:
-            results_df_[key] = pd.DataFrame(columns=list(json_input[key].keys()))
-            param_spaces[key] = list(product(*list(json_input[key].values())))
-
-        for key in json_input:
-            for parameter_combination in param_spaces[key]:
-                trial_values = {}
-
-                params = dict(zip(json_input[key].keys(), list(parameter_combination)))
-                labels_ = clustering_methods[key](**params).fit_predict(df)
-                cvi = calculate_cvi(df, labels_, idx_search_type, idx_custom_set)
-
-                trial_values["labels"] = list([int(x) for x in list(labels_)])
-                trial_values["cvi"] = cvi
-                trial_values["params"] = params
-
-                master_results[key].append(trial_values)
-
-
-        with open("es_search_results.json", "w") as f:
-            json.dump(master_results, f)
-
-        create_plots_from_es(master_results)
-        best_config_per_cvi = find_best_per_cvi(master_results)
-
-        if print(os.path.exists("es_search_results.json")):
-            print("Json created Successfully!")
-
-    except Exception as e:
-        print("ES Error---------------------------------------------------------------")
-        print(e)
-        print("ES Error---------------------------------------------------------------")
-        return e
-    return (master_results, gr.update(visible=True, value="ES success"), gr.update(visible=True), "best_alg_pie.png",
-            "no_clusters_hist.png", best_config_per_cvi)
 
 
 
@@ -209,19 +204,14 @@ def find_best(cvi, results_dict):
 
 
 def check_if_config_exists(master_results, algorithm, *algorithm_options):
-    algorithm_params = {"KMeans": {
-        "parameters": ["n_clusters", "algorithm", "max_iter", "init"],
-        "param_positions": [0, 4],
-        "method": KMeans
-    },
-        "DBSCAN": {
-            "parameters": ["eps", "min_samples", "metric"],
-            "param_positions": [4, 7],
-            "method": DBSCAN
-        }}
     param_names = algorithm_params[algorithm]["parameters"]
-    for dict_ in master_results[alg]:
-        if dict_["params"] ==
+    param_values = algorithm_options[algorithm_params[algorithm]["param_positions"][0]:
+                                     algorithm_params[algorithm]["param_positions"][1] + 1]
+    params_dict = dict(zip(param_names, param_values))
 
+    for dict_ in master_results[algorithm]:
+        if dict_["params"] == params_dict:
+            return (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True),
+                    gr.update(interactive=True))
 
-
+    return gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(interactive=False)
