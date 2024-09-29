@@ -1,9 +1,11 @@
 import gradio as gr
 from tab_1_code import load_csv, generate_data
 from tab_2_code import *
-from tab_3_code import ( find_best, serve_clustering_visualization,
+from tab_3_code import (find_best, serve_clustering_visualization,
                         return_best_cvi_config, check_if_config_exists, statistics_per_cluster, select_option,
                         dimensionality_reduction)
+from tab_4_code import update_search_type_dropdown, calculate_mf
+
 from css import custom_css
 
 print(gr.__version__)
@@ -196,6 +198,36 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                 statistics_dataframe = gr.Dataframe()
                 stats_per_cluster_btn = gr.Button("Get Per Cluster Statistics")
                 stats_per_cluster_btn.click(statistics_per_cluster, inputs=[df, labels], outputs=statistics_dataframe)
+
+    with gr.Tab('Meta-Learning'):
+        mf_df = gr.State()
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("Select Meta-Features to Generate")
+                mf_search_type = gr.Radio(["Category", "Paper", "Custom Selection"], label="Search Type")
+                mf_search_choices = gr.Dropdown(choices=[], multiselect=True, interactive=True)
+                mf_search_type.change(update_search_type_dropdown, inputs=mf_search_type, outputs=mf_search_choices)
+                mf_calculate_btn = gr.Button(value="Calculate MF")
+
+            with gr.Column():
+                mf_calculated = gr.JSON()
+
+            mf_calculate_btn.click(calculate_mf, inputs=[df, mf_search_type, mf_search_choices],
+                                   outputs=[mf_calculated])
+
+        with gr.Row():
+            gr.Markdown("Generate Meta-Record")
+        with gr.Row():
+            best_config_ml = gr.Dropdown(choices=cvi_list, multiselect=False,
+                                         label="Select Index", visible=True, interactive=True)
+            add_mf_to_repo = gr.Button("Add to Repository")
+
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("Train Meta Learner")
+                gr.Radio(["KNN", "DT"])
+                gr.Dropdown("no_neighbors")
+                gr.Dataframe()
 
     with gr.Tab("Repository"):
         clustering_parameter_records = gr.Dataframe()
