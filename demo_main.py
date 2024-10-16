@@ -1,74 +1,84 @@
-import gradio as gr
-from tab_1_code import load_csv, generate_data
-from tab_2_code import *
-from tab_3_code import (find_best, serve_clustering_visualization,
-                        return_best_cvi_config, check_if_config_exists, statistics_per_cluster, select_option,
-                        dimensionality_reduction)
-from tab_4_code import update_search_type_dropdown, calculate_mf
-
+from tab_code.tab_1_code import *
+from tab_code.tab_2_code import *
+from tab_code.tab_3_code import (
+                                 return_best_cvi_config,  statistics_per_cluster, select_option,
+                                 dimensionality_reduction, update_ui)
+from tab_code.tab_4_code import update_search_type_dropdown, calculate_mf, display_df
 from css import custom_css
 
-print(gr.__version__)
 
-theme = gr.themes.Base(
-    primary_hue="stone",
-    secondary_hue="indigo",
-    text_size="lg",
-    spacing_size="sm",
-).set(
-    button_primary_background_fill="#FF0000",
-    button_primary_background_fill_dark="#AAAAAA"
-)
+def update_cache_results(data_id_, master_results_):
+    master_results_[data_id_] = {"KMeans": [], "DBSCAN": []}
+    return master_results_
+
 
 # Create the Gradio interface
-with gr.Blocks(theme=theme, css=custom_css) as demo:
+with gr.Blocks(css=custom_css) as demo:
+    # Cache data
     df = gr.State()
+    data_id = gr.State()
+
     df_reduced = gr.State({"MDS": None, "PCA": None, "T-SNE": None})
     labels = gr.State()
-    master_results = gr.State({"KMeans": [], "DBSCAN": []})
     best_config_per_cvi = gr.State({})
-
     best_config_browse = gr.State()
     custom_config_browse = gr.State()
 
-    gr.Markdown("<h1 style='text-align: center;'>PyClust Demo</h1>")
-    with gr.Tab('Data Loading/Generation'):
-        load_data_header = gr.Markdown("<h1 style='text-align: center;'>Load Data</h1>")
-        supported_formats_txt = gr.Markdown("<p style='text-align: center;'>Supported Formats: [.csv]</p>")
+    # Models tested are temporarily being saved in memory
+    master_results = gr.State({})
+    cache_results = gr.State({})
+    data_id.change(update_cache_results, inputs=[data_id, master_results], outputs=[master_results])
 
+    # <-----------------------------Demo Titles ✓-------------------------------------------------------------->
+    demo_title = gr.Markdown("<h1 style='text-align: center; overflow: hidden;'>PyClust Demo</h1>")
+    demo_title_dataset_loaded = gr.Markdown("<h2 style='text-align: center;'>No dataset loaded.</h2>")
+
+    # <-----------------------------Data Loading ✓-------------------------------------------------------------->
+    with gr.Tab('Data Loading/Generation'):
+        data_id_txtbox = gr.Textbox(label="Assign dataset ID")
+
+        # Content
         data_upload_row = gr.Row()
-        generate_data_header = gr.Markdown("<h1 style='text-align: center;'>OR Generate Synthetic</h1>")
         data_generation_row = gr.Row()
 
-        with gr.Row(visible=False) as data_success_row:
+        # Only visible after dataset is loaded or generated.
+        with gr.Column(visible=False) as data_success_row:
             success_msg = gr.Markdown()
+            change_data_btn = gr.Button("Change Dataset?")
+            change_data_btn.click(change_data_update_visibility, outputs=[data_upload_row, data_generation_row,
+                                                                          data_id_txtbox, data_success_row])
+
+        # - Data Upload Column
         with data_upload_row:
             with gr.Column():
+                load_data_header = gr.Markdown(
+                    "<h1 style='text-align: center;'> \u27A1 Load Data ([.csv])</h1>")
                 upload_csv_options = gr.CheckboxGroup(["Headers", "Scale Data (MinMax)"],
                                                       label="Preprocessing Options")
                 csv_file = gr.File(label="Upload your CSV file")
-                csv_file.change(load_csv, inputs=[csv_file, upload_csv_options],
-                                outputs=[load_data_header, generate_data_header, data_upload_row, data_generation_row,
-                                         data_success_row,
-                                         success_msg, df])
+                csv_file.change(load_csv, inputs=[csv_file, upload_csv_options, data_id_txtbox],
+                                outputs=[data_upload_row, data_generation_row, data_id_txtbox, data_success_row,
+                                         success_msg, df, data_id, demo_title_dataset_loaded])
+
+        # - Data Generation Column
         with data_generation_row:
             with gr.Column():
+                generate_data_header = gr.Markdown("<h1 style='text-align: center;'> \u27A1 Generate Synthetic</h1>")
                 synthetic_data_method = gr.Radio(choices=["Blobs", "Moons"],
                                                  label="Choose Synthetic Data Generation Type", value="Blobs")
                 no_instances_input = gr.Number(label='No Instances', value=100)
                 no_features_input = gr.Number(label='No Features', value=2)
                 generate_data_btn = gr.Button('Generate Synthetic Data')
                 generate_data_btn.click(generate_data, inputs=[synthetic_data_method, no_instances_input,
-                                                               no_features_input],
-                                        outputs=[data_upload_row, data_generation_row,
-                                                 load_data_header, generate_data_header,
-                                                 data_success_row, success_msg, df])
+                                                               no_features_input, data_id_txtbox],
+                                        outputs=[data_upload_row, data_generation_row, data_id_txtbox, data_success_row,
+                                                 success_msg, df, data_id, demo_title_dataset_loaded])
 
+    # <-----------------------------Exhaustive Search ✓--------------------------------------------------------->
     with gr.Tab('Exhaustive Search'):
         default_search_space = """
                         {
                             "KMeans": {"n_clusters": [2, 21, 1], 
-                                          "tol": [0.00001, 0.0002, 10], 
                                           "algorithm": ["lloyd", "elkan"],
                                           "max_iter": 500, 
                                           "init": ["k-means++", "random"]}, 
@@ -79,11 +89,12 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                         """
         gr.Markdown("<h1 style='text-align: center;'>Exhaustive Search</h1>")
 
+        # Section: 1 -> Perform Exhaustive Search
         es_start_btn = gr.Button("Start Exhaustive Search")
         with gr.Row():
             with gr.Column():
-                search_space_input = gr.Textbox(value=default_search_space,
-                                                label='Set Search Space', interactive=True, lines=12)
+                search_space_input = gr.Textbox(value=default_search_space, label='Set Search Space', interactive=True,
+                                                lines=12)
             with gr.Column():
                 index_radio = gr.Radio(["All", "Custom Set"], label="Select Indices", value="All")
                 index_dropdown = gr.Dropdown(choices=cvi_list, multiselect=True, label="Select Indexes", visible=False,
@@ -91,10 +102,10 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                 index_radio.change(lambda x: gr.update(visible=True) if x == "Custom Set" else gr.update(visible=False),
                                    inputs=index_radio, outputs=index_dropdown)
 
+        es_success_msg = gr.Markdown(visible=False)
         dl_results_btn = gr.DownloadButton("Download Results", "es_search_results.json", visible=False)
 
-        es_success_msg = gr.Markdown(visible=False)
-
+        # Section: 2 -> Exhaustive Search Results
         gr.Markdown("<h1 style='text-align: center;'>Exhaustive Search Results</h1>")
         with gr.Row():
             with gr.Column():
@@ -102,18 +113,19 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
             with gr.Column():
                 pie_img = gr.Image(interactive=False)
 
-        es_start_btn.click(exhaustive_search, inputs=[master_results, df, search_space_input, index_radio,
+        es_start_btn.click(exhaustive_search, inputs=[master_results, data_id, df, search_space_input, index_radio,
                                                       index_dropdown], outputs=[master_results, es_success_msg,
                                                                                 dl_results_btn, pie_img, hist_img,
                                                                                 best_config_per_cvi])
 
+    # <-----------------------------Clustering Exploration --------------------------------------------------------->
     with gr.Tab('Clustering Exploration'):
         gr.Markdown("Find configuration that optimizes index")
         with gr.Row():
             with gr.Column(scale=2):
                 best_config_index_dropdown = gr.Dropdown(choices=cvi_list, multiselect=False,
                                                          label="Select Index", visible=True, interactive=True)
-            with gr.Column(scale=5):
+            with gr.Column(scale=7):
                 best_config = gr.Textbox(label="Best Configuration")
 
             with gr.Column(scale=1):
@@ -152,7 +164,7 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                 select_this_best_2 = gr.Checkbox(label="select", interactive=False)
 
             # Update ui based on algorithm selected.
-            algorithm_select_dropdown.change(fn=update_ui, inputs=algorithm_select_dropdown,
+            algorithm_select_dropdown.change(fn=update_           ui, inputs=algorithm_select_dropdown,
                                              outputs=[kmeans_options[key] for key in kmeans_options] +
                                                      [dbscan_options[key] for key in dbscan_options])
 
@@ -170,7 +182,9 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
         apply_clustering_btn = gr.Button("Apply Configuration", visible=False)
 
         explore_msg_2 = gr.Markdown("Configuration Found ! Select it to explore further", visible=False)
-        check_config_exists_btn.click(check_if_config_exists, inputs=[master_results, algorithm_select_dropdown] +
+
+        check_config_exists_btn.click(check_if_config_exists, inputs=[data_id, master_results,
+                                                                      algorithm_select_dropdown] +
                                                                      [kmeans_options[key] for key in kmeans_options] +
                                                                      [dbscan_options[key] for key in dbscan_options],
                                       outputs=[explore_msg_1, apply_clustering_btn, explore_msg_2, select_this_best_2])
@@ -186,7 +200,7 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                 # Clustering Visualization
                 clusters_visualized = gr.Image(interactive=False)
                 viz_btn = gr.Button("Visualize")
-                viz_btn.click(serve_clustering_visualization, inputs=[master_results, df, df_reduced, reduction_choices,
+                viz_btn.click( inputs=[master_results, df, data_id, df_reduced, reduction_choices,
                                                                       select_this_best, select_this_best_2, best_config,
                                                                       algorithm_select_dropdown] +
                                                                      [kmeans_options[key] for key in kmeans_options] +
@@ -209,6 +223,10 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                 mf_search_type.change(update_search_type_dropdown, inputs=mf_search_type, outputs=mf_search_choices)
                 mf_calculate_btn = gr.Button(value="Calculate MF")
 
+                gr.Markdown("Generate Meta-Record")
+                add_mf_to_repo = gr.Button("Add to Repository")
+
+
             with gr.Column():
                 mf_calculated = gr.JSON()
 
@@ -216,11 +234,9 @@ with gr.Blocks(theme=theme, css=custom_css) as demo:
                                    outputs=[mf_calculated])
 
         with gr.Row():
-            gr.Markdown("Generate Meta-Record")
-        with gr.Row():
             best_config_ml = gr.Dropdown(choices=cvi_list, multiselect=False,
                                          label="Select Index", visible=True, interactive=True)
-            add_mf_to_repo = gr.Button("Add to Repository")
+
 
         with gr.Row():
             with gr.Column():
