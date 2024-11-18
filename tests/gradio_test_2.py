@@ -83,6 +83,8 @@ with gr.Blocks(css=css) as demo:
             success_msg = gr.Markdown()
             change_data_btn = gr.Button("Change Dataset?")
             change_data_btn.click(change_data_update_visibility, outputs=[data_method_row, data_success_row])
+            change_data_btn = gr.Button("Predict Algorithm")
+
 
         # - Data Upload Column
         with data_upload_row:
@@ -139,18 +141,10 @@ with gr.Blocks(css=css) as demo:
                     gr.Markdown("<h1 style='text-align: center;'>Exhaustive Search</h1>")
                     es_start_btn = gr.Button("Start Exhaustive Search")
                 with gr.Row():
-                    with gr.Column():
                         search_space_input = gr.Textbox(value=default_search_space, label='Set Search Space',
                                                         interactive=True,
                                                         lines=12)
-                    with gr.Column():
-                        index_radio = gr.Radio(["All", "Custom Set"], label="Select Indices", value="All")
-                        index_dropdown = gr.Dropdown(choices=cvi_list, multiselect=True, label="Select Indexes",
-                                                     visible=False,
-                                                     interactive=True)
-                        index_radio.change(
-                            lambda x: gr.update(visible=True) if x == "Custom Set" else gr.update(visible=False),
-                            inputs=index_radio, outputs=index_dropdown)
+
 
             with gr.Column(visible=False) as es_success_row:
                 es_success_msg = gr.Markdown(visible=False)
@@ -164,8 +158,7 @@ with gr.Blocks(css=css) as demo:
                     hist_img = gr.Image(interactive=False)
                     pie_img = gr.Image(interactive=False)
 
-            es_start_btn.click(exhaustive_search, inputs=[master_results, data_id, df, search_space_input, index_radio,
-                                                          index_dropdown], outputs=[master_results, es_success_msg,
+            es_start_btn.click(exhaustive_search, inputs=[master_results, data_id, df, search_space_input], outputs=[master_results, es_success_msg,
                                                                                     dl_results_btn, pie_img, hist_img,
                                                                                     best_config_per_cvi])
 
@@ -224,47 +217,39 @@ with gr.Blocks(css=css) as demo:
 
         with gr.Tab("Calculate Meta-Features"):
             generate_mf_col = gr.Column(visible=False)
+
         with gr.Tab("Train Meta-Learner"):
             train_ml_col = gr.Column(visible=False)
+
         with generate_mf_col:
             gr.Markdown("<h1 style='text-align: center;'> \u27A1 Generate Meta Features </h1>")
             with gr.Column():
                 mf_calculate_btn = gr.Button(value="Calculate MF")
-                add_mf_to_repo = gr.Button("Add to Repository", visible=False)
-                download_mf_btn = gr.DownloadButton("json mf", visible=False)
+                download_mf_btn = gr.DownloadButton("Download (JSON)", visible=False)
             with gr.Column():
                 mf_calculated = gr.JSON()
 
-            mf_calculate_btn.click(calculate_mf, inputs=df, outputs=[mf_calculated, add_mf_to_repo, download_mf_btn])
+            mf_calculate_btn.click(calculate_mf, inputs=df, outputs=[mf_calculated,  download_mf_btn])
 
         with train_ml_col:
             gr.Markdown("<h1 style='text-align: center;'> \u27A1 Train Meta Learner </h1>")
-            ml_select = gr.Radio(["KNN", "DT"], label="Select Classifier")
-            knn_options = {"no_neighbors": gr.Slider(2, 10, value=5, step=1, interactive=True,
-                                                     label="Number of Neighbors", visible=False),
-                           "metric": gr.Radio(choices=["euclidean", "l1", "cosine"], label='metric',
-                                              visible=False, interactive=True)
-
-                           }
-            dt_options = {"criterion": gr.Radio(choices=["gini", "entropy", "log_loss"], label='metric',
-                                                visible=False, interactive=True)
-                          }
-            ml_select.change(fn=update_ml_options, inputs=ml_select, outputs=[knn_options[key] for key in knn_options] +
-                                                                             [dt_options[key] for key in dt_options])
 
             with gr.Row():
-                with gr.Column(elem_id="fixed_height_col"):
-                    gr.Markdown("Target Variable")
+                with gr.Column():
+                    ml_select = gr.Radio(["KNN", "DT"], label="Select Classifier")
+
+                with gr.Column():
                     best_alg_selection = gr.Radio(["Most Popular Alg", "Specific CVI"])
                     best_config_ml = gr.Dropdown(choices=cvi_list, multiselect=False,
-                                                 label="Select Index", visible=False, interactive=True)
+                                             label="Select Index", visible=False, interactive=True)
                     best_alg_selection.change(
                         lambda x: gr.update(visible=True) if x == "Specific CVI" else gr.update(visible=False),
                         inputs=best_alg_selection, outputs=best_config_ml)
 
+
                 # Meta Features Selection
                 with gr.Column():
-                    gr.Markdown("<h2>Select Meta-Features</h2>")
+
                     mf_selection = gr.Radio(["All",  "Custom Selection"])
 
                     mf_search_type = gr.Radio(["Category", "Paper"], label="Search Type", visible=False)
@@ -275,12 +260,15 @@ with gr.Blocks(css=css) as demo:
 
     # <-----------------------------Repository --------------------------------------------------------->
     with gr.Tab('Repository'):
+        gr.Markdown("Datasets")
         gr.Dataframe()
-
-
+        gr.Markdown("Meta-Learners")
+        gr.Dataframe()
     df.change(enable_tabs_after_df, outputs=[es_col, es_success_row, es_results_row, not_loaded_message_1,
                                              best_config_row, results_explore_column, not_loaded_message_2,
                                              generate_mf_col, train_ml_col, not_loaded_message_3])
+
+
 
 demo.launch(share=True)
 

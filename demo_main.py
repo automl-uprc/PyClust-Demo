@@ -5,7 +5,7 @@ from tab_code.tab_3_code import (
                                  dimensionality_reduction, update_ui)
 from tab_code.tab_4_code import update_search_type_dropdown, calculate_mf, display_df
 from css import custom_css
-
+import gradio as gr
 
 def update_cache_results(data_id_, master_results_):
     master_results_[data_id_] = {"KMeans": [], "DBSCAN": []}
@@ -164,7 +164,7 @@ with gr.Blocks(css=custom_css) as demo:
                 select_this_best_2 = gr.Checkbox(label="select", interactive=False)
 
             # Update ui based on algorithm selected.
-            algorithm_select_dropdown.change(fn=update_           ui, inputs=algorithm_select_dropdown,
+            algorithm_select_dropdown.change(fn=update_ui, inputs=algorithm_select_dropdown,
                                              outputs=[kmeans_options[key] for key in kmeans_options] +
                                                      [dbscan_options[key] for key in dbscan_options])
 
@@ -183,11 +183,11 @@ with gr.Blocks(css=custom_css) as demo:
 
         explore_msg_2 = gr.Markdown("Configuration Found ! Select it to explore further", visible=False)
 
-        check_config_exists_btn.click(check_if_config_exists, inputs=[data_id, master_results,
-                                                                      algorithm_select_dropdown] +
-                                                                     [kmeans_options[key] for key in kmeans_options] +
-                                                                     [dbscan_options[key] for key in dbscan_options],
-                                      outputs=[explore_msg_1, apply_clustering_btn, explore_msg_2, select_this_best_2])
+        # check_config_exists_btn.click(check_if_config_exists, inputs=[data_id, master_results,
+          #                                                            algorithm_select_dropdown] +
+           #                                                          [kmeans_options[key] for key in kmeans_options] +
+            #                                                         [dbscan_options[key] for key in dbscan_options],
+             #                         outputs=[explore_msg_1, apply_clustering_btn, explore_msg_2, select_this_best_2])
 
         with gr.Row():
             with gr.Column():

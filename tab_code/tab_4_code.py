@@ -3,14 +3,14 @@ import sys
 import gradio as gr
 import numpy as np
 import pandas as pd
+import sys
 
-sys.path.append(r"./Meta-Feature-Extractors")
-from clustml import MFExtractor
 
-mfe = MFExtractor()
-mf_categories = mfe.mf_categories
-mf_papers = mfe.mf_papers
-all_mf = [key for key in mfe.meta_features]
+
+#mfe = MFExtractor()
+#mf_categories = mfe.mf_categories
+#mf_papers = mfe.mf_papers
+#all_mf = [key for key in mfe.meta_features]
 
 
 def update_ml_options(selected_ml):
@@ -44,7 +44,7 @@ def toggle_mf_selection_options(method):
 
 
 
-def calculate_mf(data):
+def calculate_mf_(data):
     mfe_ = MFExtractor(data)
     mfe_.calculate_mf()
     gr.Info("Meta Features Extracted Successfully!")

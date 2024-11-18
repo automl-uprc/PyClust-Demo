@@ -1,5 +1,5 @@
 """
-This test includes the necessary code to compare the PyClust execution time with the python Library ClusterFeatures and
+This test includes the necessary demo_code to compare the PyClust execution time with the python Library ClusterFeatures and
 R library: clusterCrit. clusterCrit has been tested in native R and clusterFeatures was modified to be compatible with
 the latest updates of its components.
 """

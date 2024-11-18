@@ -1,5 +1,5 @@
 """
-Contains all the code used in the first tab of PyClust Demo, used for loading or generating data.
+Contains all the demo_code used in the first tab of PyClust Demo, used for loading or generating data.
 """
 
 import pandas as pd

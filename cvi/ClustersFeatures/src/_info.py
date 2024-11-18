@@ -42,7 +42,7 @@ class __Info:
     def general_info(self, **args):
         """Generate a board that gives general information about the dataset.
 
-        :param bool hide_nan: Show the NaN indices and their corresponding code. If True, showing is disabled.
+        :param bool hide_nan: Show the NaN indices and their corresponding demo_code. If True, showing is disabled.
 
         :returns: A pandas dataframe.
 

@@ -21,7 +21,7 @@ class __IndexCore(object):
         See the Bernard Desgraupes reference for more explanations.
 
         :param str code::
-        A str corresponding to one of the code inside the indices.json file. Check these codes with IndexCore_get_all_index().
+        A str corresponding to one of the demo_code inside the indices.json file. Check these codes with IndexCore_get_all_index().
 
         :returns: list or float or pandas dataframe or pandas series.
         """
@@ -33,7 +33,7 @@ class __IndexCore(object):
             if not (indice_type in [keys for keys in Indices[board_type]]):
                 raise ValueError("indice_type is not in " + str([keys for keys in Indices[board_type]]))
                 if not (code in [keys for keys in Indices[board_type][code].values()]):
-                    raise ValueError("code is not in " + str([keys for keys in Indices[board_type][code].values()]))
+                    raise ValueError("demo_code is not in " + str([keys for keys in Indices[board_type][code].values()]))
         all_index_ref=self.IndexCore_get_all_index()
         name_index = {it2: it1 for it1, it2 in all_index_ref[board_type][indices_type].items()}[code]
         if code in self._listcode_index_compute:
@@ -165,7 +165,7 @@ class __IndexCore(object):
         return value_to_return
 
     def IndexCore_get_all_index(self):
-        """Returns a dict with all the indexes and its corresponding code.
+        """Returns a dict with all the indexes and its corresponding demo_code.
 
         :returns: dict
 
@@ -255,7 +255,7 @@ class __IndexCore(object):
         return pd.concat([self.__IndexCore_get__board(board) for board in list_boardtype])
 
     def _IndexCore_nan_general_index(self):
-        """Return the code of NaN indices"""
+        """Return the demo_code of NaN indices"""
         L = {}
         d = self.IndexCore_compute_every_index()['general']
         all_index=self.IndexCore_get_all_index()['general']
