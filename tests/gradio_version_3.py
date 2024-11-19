@@ -1,12 +1,11 @@
 import gradio
-import pandas as pd
+
 
 from demo_code.tab_1 import *
 from demo_code.tab_2 import *
 from demo_code.tab_3 import *
-from tab_code.tab_3_code import (serve_clustering_visualizations,
-                                 return_best_cvi_config, statistics_per_cluster,
-                                 dimensionality_reduction)
+
+
 
 
 import os
@@ -105,8 +104,8 @@ with gr.Blocks(css=css) as demo:
                         3. **Select the Best Algorithm** for your dataset 🧠  
                         
                         ## What's Next?
-                        - Dive into **Model Search** to optimize configurations.  
-                        - Explore the **Repository** for advanced models and train new meta-learners using cutting-edge meta-learning techniques. 
+                        - Dive into **Model Search** to train and evaluate different models.  
+                        - Explore the **Repository** for pre-trained model selection meta-learners or train  and train new.. 
 
                         """)
 
@@ -277,7 +276,6 @@ with gr.Blocks(css=css) as demo:
     with gr.Tab('(3) Repository'):
         gr.Markdown("<h2 style='text-align: center; color:#3ebefe;'>Number of Datasets in The Repository: </h2>")
 
-        gr.Markdown("<h2 style='text-align: center; color:#3ebefe;'>Meta-Learners</h2>")
         with gr.Accordion("Trained Meta-Learners", elem_id="my_accordion"):
             gr.Markdown("""
             A list of all the trained meta-learners along with their meta-data. 
@@ -285,7 +283,11 @@ with gr.Blocks(css=css) as demo:
             gr.Dataframe(pd.DataFrame(columns=["Meta-Learner", "Accuracy", "Datasets Used", "Parameters", "Training Date"]))
 
         with gr.Accordion("Train Meta Learner", elem_id="my_accordion"):
+            gr.Markdown("""To train a new meta-learner please configure: (a) which classifier to user (meta-learner)
+                            , (b) which meta-features to use for the datasets (independent variables), (c) how to select the best
+                             algorithm for each dataset (dependent variable) """)
             with gr.Row():
+
                 with gr.Column(elem_id="border_col"):
                     gr.Markdown("""(A) Configure The Meta Learner Algorithm""")
                     ml_select = gr.Radio(["KNN", "DT"], label="Select Classifier")
@@ -348,6 +350,6 @@ if __name__ == "__main__":
 
 
 
-    demo.launch(share=True)
+    demo.launch(share=False)
 
 

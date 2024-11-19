@@ -230,18 +230,6 @@ def serve_heatmap(best_config_per_cvi, cvi, df):
 
 
 
-def return_best_cvi_config(best_config_per_cvi, cvi):
-    """
-    Returns the best configuration according to the results' dict.
-    Args:
-        best_config_per_cvi (dict):
-        cvi (str):
-
-    Returns:
-
-    """
-    return (best_config_per_cvi[cvi],
-            f"Algorithm: {best_config_per_cvi[cvi]['algorithm']}\nParameters: {best_config_per_cvi[cvi]['params']}")
 
 
 
