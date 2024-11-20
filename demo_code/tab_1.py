@@ -7,7 +7,6 @@ import sys
 import traceback
 
 import pandas as pd
-from scipy.constants import value
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.datasets import make_blobs, make_moons
 import gradio as gr
@@ -122,6 +121,7 @@ def mf_process(data, data_id):
     """
     if data_id == "":
         data_id = "_"
+
 
     mfe_ = MFExtractor(data)
     mfe_.calculate_mf()

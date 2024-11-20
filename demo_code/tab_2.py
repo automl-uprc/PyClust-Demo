@@ -42,11 +42,11 @@ def transform_search_space(json_input):
 
 def calculate_cvi(x, y,  custom_set, cvi_search_type="all"):
     """
-    Calculates cvi with PyClust-EVL
+    Calculates cvi with pyclustkit.eval
     Args:
         x (np.ndarray or pd.DataFrame): The dataset to use
         y (np.ndarray or pd.DataFrame): The clustering labels as found by any clustering algorithm
-        cvi_search_type (str or list): This parameter should be 'all' or it will be ignored
+        cvi_search_type (str): This parameter should be 'all' or it will be ignored to calculate a custom set given.
         custom_set (list): The list of CVI to calculate.
 
     Returns:
