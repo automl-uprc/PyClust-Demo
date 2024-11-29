@@ -7,14 +7,50 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import os
 from pyclustkit.eval import CVIToolbox
+from sklearn.manifold import MDS, TSNE
+from sklearn.decomposition import PCA
+import matplotlib.colors as mcolors
+
+
 
 cvi_list = list(CVIToolbox(np.array([1, 2]), np.array([1, 2])).cvi_methods_list.keys())
 colors = ['#ff9999','#66b3ff','#99ff99','#ffcc99'] #used in plots
 best_idx_type = CVIToolbox.cvi_opt_type
 
+search_space = """
+                {
+                    "KMeans": {"n_clusters": [2, 12, 1], 
+                        "algorithm": ["lloyd", "elkan"],
+                        "max_iter": 500, 
+                        "init": ["k-means++", "random"]}, 
+                                                  
+                    "DBSCAN": { 
+                        "eps": [0.01, 1, 0.05], 
+                        "min_samples": [2, 21,1], 
+                        "metric": ["euclidean", "l1", "cosine"]}, 
+                                                
+                    "Agglomerative": {
+                        "n_clusters": [2, 12, 1], 
+                        "metric": ["euclidean", "l1", "cosine"], 
+                        "linkage": ["ward", "complete", "average", "single"]}, 
+                                    
+                    "Affinity Propagation": {
+                        "damping": [0.5, 1, 0.1]}, 
+                                    
+                    "Spectral Clustering": {
+                        "n_clusters": [2, 12, 1], 
+                        "gamma": [0.8, 1.2, 0.1],
+                        "affinity": ["nearest_neighbors", "rbf"], 
+                        "n_neighbors": [2, 10, 1],
+                        "assign_labels": ["kmeans", "discretize", "cluster_qr"]}   
+                                }
+                                """
+
 def transform_search_space(json_input):
     """
-    Utility function that takes a dictionary and expands the values to larger iterables according to [start, end, step]
+    Utility function that takes a dictionary and expands the values.
+     The expected dict format should be as follows:
+        {Alg_1: {par_1: [start, end, step], ....}, ....}
 
     (a) list of floats = np.arrange(l[0], l[1], l[2])
     (b) list of ints = range(l[0], l[1], l[2])
@@ -65,7 +101,7 @@ def calculate_cvi(x, y,  custom_set, cvi_search_type="all"):
 
     return cvit.cvi_results
 
-def find_best_per_cvi(results_dict, data_id):
+def find_best_per_cvi(data_id):
     """
     Finds the best configuration according to each CVI from given trial results
     Args:
@@ -78,36 +114,47 @@ def find_best_per_cvi(results_dict, data_id):
 
 
     # Get all trial results in a list
+    if not os.path.exists(f"results/es/{data_id}.json"):
+        gr.Info("Attempted to find Best Configuration according to CVI , but no ES results were found in the results "
+                "folder.")
+        return
+    with open(f"results/es/{data_id}.json", "r") as f:
+        es_results = json.load(f)
     all_configs = []
-    for key in results_dict[data_id]:
-        all_configs += results_dict[data_id][key]
+    for key in es_results:
+        all_configs += es_results[key]
 
     best_config_per_cvi = {}
     for cvi in cvi_list:
         try:
-            for type in best_idx_type:
-                if type == "max":
-                    best_config_per_cvi[cvi] = max(all_configs, key=lambda x: x["cvi"][cvi])
-                elif type == "min":
-                    best_config_per_cvi[cvi] = min(all_configs, key=lambda x: x["cvi"][cvi])
+            if cvi in best_idx_type["max"]:
+                best_config_per_cvi[cvi] = max(all_configs, key=lambda x: x["cvi"][cvi])
 
-                elif type == "max_diff":
-                    sorted_configs = sorted(all_configs, key=lambda x: x["cvi"][cvi])
-                    diffs = [sorted_configs[i + 1] - sorted_configs[i] for i in range(len(sorted_configs) - 1)]
-                    max_diff_index = diffs.index(max(diffs))
-                    best_config_per_cvi[cvi] = sorted_configs[max_diff_index + 1]
+            elif cvi in best_idx_type["min"]:
+                best_config_per_cvi[cvi] = min(all_configs, key=lambda x: x["cvi"][cvi])
 
-                elif type == "min_diff":
-                    sorted_configs = sorted(all_configs, key=lambda x: x["cvi"][cvi])
-                    diffs = [sorted_configs[i + 1] - sorted_configs[i] for i in range(len(sorted_configs) - 1)]
-                    max_diff_index = diffs.index(min(diffs))
-                    best_config_per_cvi[cvi] = sorted_configs[max_diff_index + 1]
+            elif cvi in best_idx_type["max_diff"]:
+                sorted_configs = sorted(all_configs, key=lambda x: x["cvi"][cvi])
+                diffs = [sorted_configs[i + 1]["cvi"][cvi] -
+                             sorted_configs[i]["cvi"][cvi] for i in range(len(sorted_configs) - 1)]
+                max_diff_index = diffs.index(max(diffs))
+                best_config_per_cvi[cvi] = sorted_configs[max_diff_index + 1]
+
+            elif cvi in best_idx_type["min_diff"]:
+                sorted_configs = sorted(all_configs, key=lambda x: x["cvi"][cvi])
+                diffs = [sorted_configs[i + 1]["cvi"][cvi] -
+                             sorted_configs[i]["cvi"][cvi] for i in range(len(sorted_configs) - 1)]
+                max_diff_index = diffs.index(min(diffs))
+                best_config_per_cvi[cvi] = sorted_configs[max_diff_index + 1]
+
         except Exception as e:
             print(f"Eror in finding best config: {cvi}")
             print(e)
             print(f"Eror in finding best config: {cvi}")
             continue
+
     print(f"Found {len(best_config_per_cvi.keys())} best configs")
+    print(best_config_per_cvi)
     return best_config_per_cvi
 
 def create_plots_from_es(best_config_per_cvi):
@@ -215,35 +262,130 @@ def exhaustive_search(master_results, data_id, df, json_input, idx_search_type, 
     json_input = transform_search_space(json.loads(json_input))
 
     param_combinations_per_alg = {}
+    master = dict([(x,[]) for x in json_input.keys()])
     for key_alg in json_input:
+        print(f"-----------------------({key_alg})--------------------------------------------------")
         # Define and iterate over parameter space for each algorithm
         param_combinations_per_alg[key_alg] = list(product(*list(json_input[key_alg].values())))
+        gr.Info(f"Grid Search: {key_alg} : {sum([len(param_combinations_per_alg[x]) for x in 
+                                                  param_combinations_per_alg])} total models")
+
         for param_combination in param_combinations_per_alg[key_alg]:
+            print(f"-----------------------({param_combination})--------------------------------------------------")
             trial_values = {}
             params = dict(zip(json_input[key_alg].keys(), list(param_combination)))
-            labels_ = clustering_methods[key_alg](**params).fit_predict(df)
-
+            try:
+                labels_ = clustering_methods[key_alg](**params).fit_predict(df)
+            except ValueError:
+                continue
+            print(f"labels ok")
             if len(set(labels_)) == 1:
                 continue
             else:
                 # idx_custom_set is only relevant if idx_search_type != "all", otherwise it is ignored
                 cvi = calculate_cvi(x=df, y=labels_, custom_set=[1,2])
-
+                print(f"CVI ok")
                 trial_values["algorithm"] = key_alg
                 trial_values["params"] = params
                 trial_values["labels"] = list([int(x) for x in list(labels_)])
                 trial_values["cvi"] = cvi
 
-                master_results[data_id][key_alg].append(trial_values)
+                # master_results[data_id][key_alg].append(trial_values)
+                master[key_alg].append(trial_values)
+
+
 
         # Save Results
-        with open(os.path.join(os.getcwd(), "results", "es", f"{data_id}.json"), "w") as f:
-            json.dump(master_results, f)
+    with open(os.path.join(os.getcwd(), "results", "es", f"{data_id}.json"), "w") as f:
+            json.dump(master, f)
 
-        best_config_per_cvi = find_best_per_cvi(master_results, data_id)
-        create_plots_from_es(best_config_per_cvi)
+    best_config_per_cvi = find_best_per_cvi( data_id)
+    create_plots_from_es(best_config_per_cvi)
 
-        return (master_results, gr.update(visible=True, value="<h2 style= text-align:center;>ES success</h2>"),
+    return (master_results, gr.update(visible=True, value="<h2 style= text-align:center;>ES success</h2>"),
                 gr.update(visible=True), "best_alg_pie.png",
                 "no_clusters_hist.png", best_config_per_cvi,
                 "<h2 style='text-align: left; color:#3ebefe;'>Model Search: ✅</h2>")
+
+# -------------------------------------------------Tab 2-------------------------
+
+def serve_clustering_visualizations(best_config_per_cvi, df_reduced, cvi, reduction_method, df):
+    data = np.array(df_reduced[reduction_method])
+    config = best_config_per_cvi[cvi]
+    labels = config["labels"]
+
+    cmap = plt.cm.get_cmap("viridis", len(np.unique(labels)))
+    norm = mcolors.BoundaryNorm(np.arange(-0.5, len(np.unique(labels)), 1), cmap.N)
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(data[:, 0], data[:, 1], c=labels, cmap=cmap, norm=norm, s=50)
+    plt.colorbar(scatter, ticks=np.unique(labels))
+    plt.title("Dataset Scatterplot}")
+    plt.xlabel("Feature 1")
+    plt.ylabel("Feature 2")
+    plt.grid(True)
+    plt.savefig("clusters_visualized.png")
+    fig1 = plt.gcf()
+
+    return fig1
+
+def create_scatterplot(data, labels):
+    data = np.array(data)
+    cmap = plt.cm.get_cmap("viridis", len(np.unique(labels)))
+    norm = mcolors.BoundaryNorm(np.arange(-0.5, len(np.unique(labels)), 1), cmap.N)
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(data[:, 0], data[:, 1], c=labels, cmap=cmap, norm=norm, s=50)
+    plt.colorbar(scatter, ticks=np.unique(labels))
+    plt.title("Dataset Scatterplot}")
+    plt.xlabel("Feature 1")
+    plt.ylabel("Feature 2")
+    plt.grid(True)
+    plt.savefig("clusters_visualized.png")
+    fig1 = plt.gcf()
+
+    return fig1
+
+def on_best_cvi_change(cvi, best_config_per_cvi, df_reduced, df , df_needs_reduction, df_reduction_method):
+    """
+    This method is applied when the index is changed in tab-2/Clustering Exploration
+        (1) It displays the full configuration found when optimizing the index
+        (2) -If data need reduction (>2 columns)- Performs selected dimensionality reduction and updates repository.
+        (3) Creates and returns plots for visualization
+
+    Args:
+        cvi:
+        best_config_per_cvi:
+        df_reduced:
+        df:
+        df_needs_reduction:
+        df_reduction_method:
+
+    Returns:
+
+    """
+
+
+    methods = {"T-SNE": TSNE, "PCA": PCA, "MDS": MDS}
+
+    # --- (1) ---
+    cache_best_config = best_config_per_cvi[cvi]
+    best_config = f"Algorithm: {best_config_per_cvi[cvi]['algorithm']}\nParameters: {best_config_per_cvi[cvi]['params']}"
+
+    # --- (2) ---
+    if df_needs_reduction:
+        if df_reduced[df_reduction_method] is None:
+            gr.Info("First time applying this dimensionality reduction method, it may take a while for big datasets.")
+            df_reduced[df_reduction_method] = methods[df_reduction_method](n_components=2).fit_transform(df)
+            data = df_reduced[df_reduction_method]
+        else:
+            data = df_reduced[df_reduction_method]
+    else:
+        data = df
+
+    scatter_plot = create_scatterplot(data, cache_best_config["labels"])
+    return best_config, df_reduced, scatter_plot
+
+
+
+        #data = df_reduced[df_reduction_method]
+    #else:
+      #  data = df

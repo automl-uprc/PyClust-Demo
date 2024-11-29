@@ -1,17 +1,16 @@
 import gradio
 
-
+from demo_code.generic import *
 from demo_code.tab_1 import *
 from demo_code.tab_2 import *
 from demo_code.tab_3 import *
 
 
-
-
 import os
 
 
-logo_path = 'clustering_framework_logo.jpg'
+
+
 css = """
 /* Customize tab label font size */
 .tabs button {
@@ -55,17 +54,13 @@ def control_data_visibility(data_method):
         return gr.update(visible=True), gradio.update(visible=False)
 
 
-def enable_tabs_after_df():
-    return (gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False),
-            gr.update(visible=True), gr.update(visible=True), gr.update(visible=False),
-            gr.update(visible=True), gr.update(visible=True), gr.update(visible=False))
 
 
 # Create the Gradio interface
 with gr.Blocks(css=css) as demo:
     # Cache data
     df = gr.State()
-
+    df_needs_reduction = gr.State()
     data_id = gr.State()
 
     df_reduced = gr.State({"MDS": None, "PCA": None, "T-SNE": None})
@@ -123,8 +118,6 @@ with gr.Blocks(css=css) as demo:
                 # - Data Upload Column
             with gr.Column(visible=False) as data_upload_row:
 
-                load_data_header = gr.Markdown(
-                            "<h1 style='text-align: center;'> \u27A1 Load Data ([.csv])</h1>")
                 upload_csv_options = gr.CheckboxGroup(["Headers", "Scale Data (MinMax)"],
                                                               label="Preprocessing Options")
                 csv_file = gr.File(label="Upload your CSV file")
@@ -132,8 +125,6 @@ with gr.Blocks(css=css) as demo:
 
                 # - Data Generation Column
             with gr.Column(visible=False) as data_generation_row:
-                generate_data_header = gr.Markdown(
-                            "<h1 style='text-align: center;'> \u27A1 Generate Synthetic</h1>")
                 synthetic_data_method = gr.Radio(choices=["Blobs", "Moons"],
                                                          label="Choose Synthetic Data Generation Type", value="Blobs")
                 no_instances_input = gr.Number(label='No Instances', value=100)
@@ -172,61 +163,28 @@ with gr.Blocks(css=css) as demo:
                                                                            demo_mf_completed]) #
 
     # <-----------------------------Exhaustive Search ✓-------------------------------------------------------------->
-    with gr.Tab('(2) Parameter Search'):
-        with gr.Tab("Grid Search"):
-            default_search_space = """
-                                 {
-                                    "KMeans": {"n_clusters": [2, 21, 1], 
-                                                  "algorithm": ["lloyd", "elkan"],
-                                                  "max_iter": 500, 
-                                                  "init": ["k-means++", "random"]}, 
-                                                  
-                                    "DBSCAN": {"eps": [0.01, 1, 0.05], 
-                                                "min_samples": [2, 21,1], 
-                                                "metric": ["euclidean", "l1", "cosine"]}, 
-                                                
-                                    "Agglomerative": {"n_clusters": [2, 21, 1], 
-                                                "affinity": ["euclidean", "l1", "cosine"], 
-                                                "linkage": ["ward", "complete", "average", "single"]}, 
-                                    
-                                    "Affinity Propagation": {"damping": [0.1, 1, 0.1]}, 
-                                    
-                                    "Spectral Clustering": {"n_clusters": [2, 21, 1], 
-                                                  "gamma": [1.0, 2.0, 0.1],
-                                                  "affinity": ["nearest_neighbors", "rbf"], 
-                                                  "n_neighbors": [2, 10, 1],
-                                                  "assign_labels": ["kmeans", "discretize", "cluster_qr"]}   
-                                }
-                                """
+    with gr.Tab('(2) Parameter Search') :
+        not_loaded_message = gr.Markdown("""
+                                        <div style="display: flex; justify-content: center; align-items: center; 
+                                        height: 100%;">
+                                            No data loaded yet.
+                                        </div>
+                                        """, elem_id="centered-message")
 
+        with gr.Tab("Grid Search", visible=False) as model_search_tab:
 
-
-            not_loaded_message_1 = gr.Markdown("""
-                        <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                            No data loaded yet.
-                        </div>
-                        """, elem_id="centered-message")
-
-            # Section: 1 -> Perform Exhaustive Search
-
-            with gr.Column(visible=False) as es_col:
+            with gr.Column() as es_col:
                 with gr.Column():
-                    gr.Markdown("<h1 style='text-align: center;'>Exhaustive Search</h1>")
                     es_start_btn = gr.Button("Start Exhaustive Search")
-
-                with gr.Row():
-                        search_space_input = gr.Textbox(value=default_search_space, label='Set Search Space',
+                    search_space_input = gr.Textbox(value=search_space, label='Set Search Space',
                                                         interactive=True,
                                                         lines=12)
 
-
-            with gr.Column(visible=False) as es_success_row:
+            with gr.Column() as es_success_row:
                 es_success_msg = gr.Markdown(visible=False)
                 dl_results_btn = gr.DownloadButton("Download Results", "es_search_results.json", visible=False)
 
-            # Section: 2 -> Exhaustive Search Results
-
-            with gr.Column(visible=False) as es_results_row:
+            with gr.Column() as es_results_row:
                 gr.Markdown("<h1 style='text-align: center;'>Exhaustive Search Results</h1>")
                 with gr.Row():
                     hist_img = gr.Image(interactive=False)
@@ -238,39 +196,50 @@ with gr.Blocks(css=css) as demo:
 
 
     # <-----------------------------Clustering Exploration ✓--------------------------------------------------------->
-        with gr.Tab('Clustering Exploration'):
-            not_loaded_message_2 = gr.Markdown("""
-                                <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                                    No data loaded yet.
-                                </div>
-                                """, elem_id="centered-message")
-            best_config_row = gr.Row(visible=False)
-            results_explore_column = gr.Column(visible=False)
+        with gr.Tab('Clustering Exploration', visible=False) as clustering_exploration_tab:
+
+            best_config_row = gr.Row(visible=True)
+            reduction_column = gr.Column(visible=False)
+            results_explore_column = gr.Column(visible=True)
+
+            gr.Markdown(""" In this page you can search the exhaustive search results for the best model as indicated 
+                            by a cvi and visually explore the clusters. """)
 
             with best_config_row:
+
                 with gr.Column(scale=3):
                     best_config_index_dropdown = gr.Dropdown(choices=cvi_list, multiselect=False,
                                                              label="Select Index", visible=True, interactive=True,
-                                                             elem_id="my-dropdown")
+                                                             elem_id="my-dropdown", value="")
                 with gr.Column(scale=7):
                     best_config = gr.Textbox(label="Best Configuration", elem_id="my-textbox")
 
-            best_config_index_dropdown.change(return_best_cvi_config, inputs=[best_config_per_cvi,
-                                                                              best_config_index_dropdown],
-                                              outputs=[best_config_browse, best_config])
+            with reduction_column:
+                gr.Markdown("""Provided Dataset has more than two Features. 
+                            Please select a method to reduce dimensions to 2.""")
+
+                reduction_choices = gr.Radio(choices=[ "PCA","T-SNE", "MDS"], value="")
 
             with results_explore_column:
-                gr.Markdown("Results Exploration")
-                reduction_choices = gr.Radio(choices=["T-SNE", "PCA", "MDS"])
-                reduction_msg = gr.Markdown(visible=False)
+
                 with gr.Row():
                     with gr.Column():
                         # Dim Reduction Functionality.
 
-                        reduction_choices.change(dimensionality_reduction, inputs=[df, reduction_choices, df_reduced],
-                                                 outputs=[df_reduced, reduction_msg])
+                        # reduction_choices.change(dimensionality_reduction, inputs=[df, reduction_choices, df_reduced],
+                                            #     outputs=[df_reduced])
                         clusters_visualized = gr.Plot()
                         # Clustering Visualization
+
+
+
+            # -> UI logic
+            # (1) Show plot if dataset_dim ==2 else: show reduction options
+            best_config_index_dropdown.change(on_best_cvi_change,
+                                              inputs=[best_config_index_dropdown, best_config_per_cvi, df_reduced, df,
+                                                      df_needs_reduction],
+                                              outputs=[best_config, df_reduced, clusters_visualized])
+
 
     # <-----------------------------Repository --------------------------------------------------------->
     with gr.Tab('(3) Repository'):
@@ -327,9 +296,9 @@ with gr.Blocks(css=css) as demo:
                         lambda x: gr.update(visible=True) if x == "Specific CVI" else gr.update(visible=False),
                         inputs=best_alg_selection, outputs=best_config_ml)
 
-    df.change(enable_tabs_after_df, outputs=[es_col, es_success_row, es_results_row, not_loaded_message_1,
-                                             best_config_row, results_explore_column, not_loaded_message_2,
-                                             ])
+    df.change(on_df_load, inputs=df, outputs=[df_needs_reduction, model_search_tab, clustering_exploration_tab,
+                                              not_loaded_message])
+    df_needs_reduction.change(df_needs_dimred, inputs=df_needs_reduction, outputs=reduction_column)
 
 
 
