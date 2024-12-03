@@ -9,6 +9,9 @@ from demo_code.tab_3 import *
 import os
 
 
+#on_load
+mldf = meta_learners_repository()
+# (2) no datasets in the repository
 
 
 css = """
@@ -29,6 +32,11 @@ css = """
     padding: 10px;
     margin: 5px;
     border-radius: 5px;
+
+#table {
+ font-size: 0.5em;
+}
+
 }
 """
 
@@ -62,6 +70,9 @@ with gr.Blocks(css=css) as demo:
     df = gr.State()
     df_needs_reduction = gr.State()
     data_id = gr.State()
+
+    meta_learner_trained = gr.State()
+    trained_meta_learner_metadata = gr.State()
 
     df_reduced = gr.State({"MDS": None, "PCA": None, "T-SNE": None})
     labels = gr.State()
@@ -249,22 +260,22 @@ with gr.Blocks(css=css) as demo:
             gr.Markdown("""
             A list of all the trained meta-learners along with their meta-data. 
             """)
-            gr.Dataframe(pd.DataFrame(columns=["Meta-Learner", "Accuracy", "Datasets Used", "Parameters", "Training Date"]))
+            gr.Dataframe(mldf, elem_id="small")
 
         with gr.Accordion("Train Meta Learner", elem_id="my_accordion"):
             gr.Markdown("""To train a new meta-learner please configure: (a) which classifier to user (meta-learner)
                             , (b) which meta-features to use for the datasets (independent variables), (c) how to select the best
                              algorithm for each dataset (dependent variable) """)
+            train_ml_btn = gradio.Button("Train")
             with gr.Row():
 
                 with gr.Column(elem_id="border_col"):
                     gr.Markdown("""(A) Configure The Meta Learner Algorithm""")
-                    ml_select = gr.Radio(["KNN", "DT"], label="Select Classifier")
+                    ml_select = gr.Radio(["KNN", "DT"], label="Select Classifier", value="KNN")
                     knn_options = {"no_neighbors": gr.Slider(2, 10, value=5, step=1, interactive=True,
-                                                             label="Number of Neighbors", visible=False),
+                                                             label="Number of Neighbors", visible=True),
                                    "metric": gr.Radio(choices=["euclidean", "l1", "cosine"], label='metric',
-                                                      visible=False, interactive=True)
-
+                                                      visible=True, interactive=True, value="euclidean")
                                    }
                     dt_options = {"criterion": gr.Radio(choices=["gini", "entropy", "log_loss"], label='metric',
                                                         visible=False, interactive=True)
@@ -275,50 +286,74 @@ with gr.Blocks(css=css) as demo:
 
                 with gr.Column(elem_id="border_col"):
                     gr.Markdown("""(B) Select The meta-features group to include as training variables""")
-                    mf_selection = gr.Radio(["All", "Custom Selection"])
 
+                    mf_selection = gr.Radio(["All", "Custom Selection"], value="All")
                     mf_search_type = gr.Radio(["Category", "Paper"], label="Search Type", visible=False)
                     mf_search_choices = gr.Dropdown(choices=[], multiselect=True, interactive=True, visible=False)
-                    mf_search_type.change(update_search_type_dropdown, inputs=mf_search_type,
-                                          outputs=mf_search_choices)
 
+                    # On change effects
                     mf_selection.change(fn=toggle_mf_selection_options, inputs=[mf_selection],
                                         outputs=[mf_search_type, mf_search_choices])
 
-
+                    mf_search_type.change(update_search_type_dropdown, inputs=mf_search_type,
+                                          outputs=mf_search_choices)
 
                 with gr.Column(elem_id="border_col"):
                     gr.Markdown("""(C) Select how to appoint the best algorithm to each dataset""")
-                    best_alg_selection = gr.Radio(["Most Popular Alg", "Specific CVI"])
+                    best_alg_selection = gr.Radio(["Most Popular Alg", "Specific CVI"], value="Most Popular Alg")
                     best_config_ml = gr.Dropdown(choices=cvi_list, multiselect=False,
                                                  label="Select Index", visible=False, interactive=True)
+
+
                     best_alg_selection.change(
                         lambda x: gr.update(visible=True) if x == "Specific CVI" else gr.update(visible=False),
                         inputs=best_alg_selection, outputs=best_config_ml)
 
+
+
+        with gr.Accordion("Meta-Learner Results", elem_id="my_accordion"):
+
+            with gr.Row():
+                ml_id = gr.Textbox(label="Provide meta learner ID", interactive=True)
+                ml_add_to_repo_btn = gr.Button("Add meta-learner to repository ")
+
+            with gr.Row():
+                ml_cm_img = gr.Image()
+                ml_meta_data = gr.JSON()
+
+
+        train_ml_btn.click(train_meta_learner,
+                           inputs=[ml_select, mf_selection, best_alg_selection] +
+                                  [knn_options[x] for x in knn_options.keys()] +
+                                  [dt_options[x] for x in dt_options] + [mf_search_type, mf_search_choices] +
+                                  [best_config_ml],
+                           outputs= [ml_cm_img, ml_meta_data, meta_learner_trained] )
+
+        ml_add_to_repo_btn.click(save_meta_learner, inputs=[meta_learner_trained, ml_id, ml_meta_data])
+
+
     df.change(on_df_load, inputs=df, outputs=[df_needs_reduction, model_search_tab, clustering_exploration_tab,
                                               not_loaded_message])
+
     df_needs_reduction.change(df_needs_dimred, inputs=df_needs_reduction, outputs=reduction_column)
 
 
+# Create repo folders for meta-features and es results
+cwd = os.getcwd()
+if not os.path.isdir(os.path.join(cwd, "results")):
+    os.mkdir(os.path.join(cwd, "results"))
 
-if __name__ == "__main__":
-    # Create repo folders for meta-features and es results
-    cwd = os.getcwd()
-    if not os.path.isdir(os.path.join(cwd, "results")):
-        os.mkdir(os.path.join(cwd, "results"))
+mf_path = os.path.join(cwd, "results", "mf")
+es_path = os.path.join(cwd, "results", "es")
 
-    mf_path = os.path.join(cwd, "results", "mf")
-    es_path = os.path.join(cwd, "results", "es")
+if not os.path.isdir(mf_path):
+    os.mkdir(mf_path)
 
-    if not os.path.isdir(mf_path):
-        os.mkdir(mf_path)
-
-    if not os.path.isdir(es_path):
-        os.mkdir(es_path)
+if not os.path.isdir(es_path):
+    os.mkdir(es_path)
 
 
 
-    demo.launch(share=False)
+demo.launch(share=False)
 
 

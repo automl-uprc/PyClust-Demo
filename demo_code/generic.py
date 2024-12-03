@@ -1,5 +1,8 @@
+"""This script contains a collection of methods that function on demo load or when information
+to display is updated such as a meta-learner or a dataset being added to the repository. """
 import gradio as gr
-
+import json
+import pandas as pd
 
 def on_df_load(df):
     """
@@ -24,3 +27,11 @@ def df_needs_dimred(df_needs_dim_red):
     else:
         return gr.update(visible=False)
 
+def meta_learners_repository():
+    """Loads and returns a dataframe that contains meta-learners and their meta-data."""
+    with open("repository/meta_learners/meta-data.json", "r") as f:
+        d = json.load(f)
+
+    mldf = pd.json_normalize(d)
+    mldf.columns = [".".join(x.split(".")[1:]) for x in mldf.columns]
+    return mldf
