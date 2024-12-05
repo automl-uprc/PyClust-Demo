@@ -16,7 +16,7 @@ from pyclustkit.metalearning import MFExtractor
 import pyclustkit
 
 # ----------------------Load Data----------------------------------------------------
-def change_data_update_visibility():
+def change_data_update_visibility(operations_status):
     """
     Controls visibility when the user wants to change the current working dataset.
     Returns:
@@ -26,7 +26,10 @@ def change_data_update_visibility():
             (3) Data Method Choice - Value
 
     """
-    return (gr.update(visible=True), gr.update(visible=False), gr.update(value=None))
+    operations_status["meta-features-extraction"] = False
+    operations_status["configuration-search"] = False
+    print(operations_status)
+    return gr.update(visible=True), gr.update(visible=False), gr.update(value=None), operations_status
 
 def load_csv(file, csv_options, data_id):
     """
@@ -107,7 +110,7 @@ def generate_data(synthetic_method, no_instances, no_features, data_id):
 
 # --------------------(2) MF---------------------------------------------------------
 
-def mf_process(data, data_id):
+def mf_process(data, data_id, operations_status):
     """
     Calculates Meta-Features for a given dataset.
     Args:
@@ -128,13 +131,14 @@ def mf_process(data, data_id):
     gr.Info("Meta Features Extracted Successfully!")
     mf_results = mfe_.search_mf(search_type="values")
     # save results
+    operations_status["meta-features-extraction"] = True
     try:
         cwd = os.getcwd()
         with open(os.path.join(cwd, "results", "mf", f"{data_id}.json"), "w") as f:
             json.dump(mf_results, f)
 
         return (mf_results, gr.update(value= os.path.join(cwd, "results", "mf", f"{data_id}.json"), visible=True),
-                "<h2 style='text-align: right; color:#3ebefe;'>Meta-Features: ✅</h2>")
+                operations_status)
     except Exception as e:
         print(e)
         traceback.print_exc()

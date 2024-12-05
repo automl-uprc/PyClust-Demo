@@ -236,7 +236,7 @@ def create_plots_from_es(best_config_per_cvi):
     plt.savefig("no_clusters_hist.png", dpi=300)  # Save with high resolution for clarity
     plt.close()
 
-def exhaustive_search(master_results, data_id, df, json_input, idx_search_type, idx_custom_set):
+def exhaustive_search(master_results, data_id, df, json_input, operations_state):
     """
 
     Args:
@@ -245,8 +245,6 @@ def exhaustive_search(master_results, data_id, df, json_input, idx_search_type, 
         data_id (str): The assigned data ID for the dataset currently active
         df (pd.DataFrame): The data provided/generated
         json_input (str): The search space defined as a string of a dict
-        idx_search_type (str): Either 'all' or Custom Set
-        idx_custom_set (list): The CVI to calculate if idx_search_type == Custom Set
 
     Returns:
         tuple: A tuple that contains visibility and content updates for Gradio components.
@@ -302,10 +300,11 @@ def exhaustive_search(master_results, data_id, df, json_input, idx_search_type, 
     best_config_per_cvi = find_best_per_cvi( data_id)
     create_plots_from_es(best_config_per_cvi)
 
+    operations_state["configurations-search"] = True
     return (master_results, gr.update(visible=True, value="<h2 style= text-align:center;>ES success</h2>"),
                 gr.update(visible=True), "best_alg_pie.png",
                 "no_clusters_hist.png", best_config_per_cvi,
-                "<h2 style='text-align: left; color:#3ebefe;'>Model Search: ✅</h2>")
+                operations_state)
 
 # -------------------------------------------------Tab 2-------------------------
 

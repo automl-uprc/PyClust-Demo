@@ -11,7 +11,7 @@ from pyclustkit.metalearning import  MFExtractor
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, accuracy_score
 from sklearn.model_selection import LeaveOneOut
 
 from collections import  Counter
@@ -56,50 +56,51 @@ def toggle_mf_selection_options(method):
     elif method == "All":
         return gr.update(visible=False), gr.update(visible=False)
 
-
 def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
 
     print(algorithm, mf , best_alg, alg_options)
 
-    # Algorithm Config
+    # ---(1)--- Configure Classification algorithm
     if algorithm == "KNN":
         alg = KNeighborsClassifier(n_neighbors=alg_options[0], metric=alg_options[1])
-
     elif algorithm == "DT":
-        alg = DecisionTreeClassifier()
+        alg = DecisionTreeClassifier(criterion=alg_options[2])
 
-    # MF Config
+    # ---(2)--- Filter selected Meta-features and create dataframe
     mfdf = pd.DataFrame()
 
-    # Filter meta-features to include
     if mf == "Custom Selection" :
         mf_to_include = []
 
         if alg_options[3] == "Category" :
             for cat in alg_options[4]:
                 mf_to_include += mfe.search_mf(category=cat, search_type="names")
+
         elif alg_options[3] == "Paper" :
             for paper in alg_options[4]:
                 mf_to_include += mfe.search_mf(included_in=paper, search_type="names")
 
-        for mf_ in os.listdir("repository/meta_features/synthetic_datasets"):
-            with open(os.path.join(os.getcwd(), "repository/meta_features/synthetic_datasets", mf_), "r") as f:
-                mf_dict = json.load(f)
-                mf_dict = {k: v for k,v in mf_dict.items() if k in mf_to_include}
+    elif mf == "All":
+        mf_to_include = mfe.search_mf(search_type="names")
 
-                mf_df = pd.json_normalize(mf_dict)
-                mf_df['dataset'] = mf_.replace(".json", "").replace("_", "-")
+    for mf_ in os.listdir("repository/meta_features/synthetic_datasets"):
+        with open(os.path.join(os.getcwd(), "repository/meta_features/synthetic_datasets", mf_), "r") as f:
+            mf_dict = json.load(f)
+            mf_dict = {k: v for k,v in mf_dict.items() if k in mf_to_include}
 
-                mfdf = pd.concat([mfdf,mf_df], ignore_index=True)
+            mf_df = pd.json_normalize(mf_dict)
+            mf_df['dataset'] = mf_.replace(".json", "").replace("_", "-")
+
+            mfdf = pd.concat([mfdf,mf_df], ignore_index=True)
 
     mfdf = mfdf.reset_index(drop=True)
 
 
-
-    # Get Labels
+    # ---(3)--- Get Labels
     with open("repository/best_alg_per_cvi/synthetic_datasets_best_alg.json", "r") as f:
         master_cvi_dict = json.load(f)
     best_alg_per_dataset = []
+
     if best_alg == "Most Popular Alg":
         for key in master_cvi_dict:
             count_cvi_pop = Counter(list(master_cvi_dict[key].values()))
@@ -117,14 +118,13 @@ def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
 
     master_df = pd.merge(mfdf, labels_df, on="dataset", how="outer").reset_index(drop=True)
     master_df = master_df.fillna(0)
-    print(mfdf.head(5))
-    print(master_df[["dataset","algorithm"]])
-    print(master_df.iloc[0])
 
-    # Algorithm Training
+
+    # ---(4)--- Algorithm Training
     X = master_df.drop(columns=["dataset", "algorithm"])
     y = master_df["algorithm"]
 
+    # If the datasets are few, evaluate with Leave-One-Out
     if master_df.shape[0] <= 40:
         loo = LeaveOneOut()
         y_true = []
@@ -137,28 +137,41 @@ def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
             alg.fit(x_train, y_train)
 
             y_true.append(y_test.iloc[0])  # Single test instance
-            print(x_test)
-            print(x_test.iloc[0])
             y_pred.append(alg.predict(x_test.iloc[0].values.reshape(1,-1))[0])
 
-        cm = confusion_matrix(y_true, y_pred)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=np.unique(y))
-        disp.plot(cmap=plt.cm.Blues)
-        plt.savefig("confusion_matrix_loocv.png")
-        plt.close()
+    # ---(5)--- Return Confusion Matrix
+    cm = confusion_matrix(y_true, y_pred)
+    label_map = {"AgglomerativeClustering" : "Agglomerative", "AffinityPropagation": "Af.Propagation"}
+    labels = [label_map[label] if label in label_map.keys() else label for label in np.unique(y) ]
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    disp.plot(cmap=plt.cm.Blues)
+
+    plt.xticks(rotation=45, fontsize=10, ha='right')  # Rotate x-axis labels
+    plt.yticks(fontsize=7)
+
+    plt.tight_layout()
+    plt.savefig("confusion_matrix_loocv.png")
+    plt.close()
 
     gr.Info("Meta Learner trained successfully!")
-    ml_meta_data  = {"no_datasets": master_df.shape[0], "evaluation": {"method": "Leave-One-Out", "accuracy": 10}, "meta-features":
-        {"number": 10, "based_on": "category"}, "classes_that_appear_in_data": "" }
+    ml_meta_data  = {"no_datasets": master_df.shape[0],
+                     "evaluation": {"method": "Leave-One-Out", "accuracy": accuracy_score(y_true, y_pred)},
+                     "meta-features": {"number": len(mfdf.columns), "based_on": "category", "selection": alg_options[4]},
+                     "best_algorithm": {"based_on": best_alg, "selection": alg_options[5]},
+                     "classes_that_appear_in_data": len(np.unique(y)) }
 
     return "confusion_matrix_loocv.png", ml_meta_data, alg
 
 def save_meta_learner(model, model_name, model_metadata):
     """
+    Saves the trained meta-learner and updates the metadata file.
 
     Args:
-        model:
-        model_name:
+        model_metadata (dict): The metadata object of the meta-learner
+        model (sklearn.base.BaseEstimator): Any meta-learner classification model trained (from scikit learn)
+        model_name (str): The id the user provides
 
     Returns:
 
@@ -169,8 +182,6 @@ def save_meta_learner(model, model_name, model_metadata):
 
     # ---(2)--- Check if any meta-learning model with the same name exists
     meta_learners_saved = os.listdir("repository/meta_learners/models")
-    print(model_name + ".pkl" )
-    print(meta_learners_saved)
     if model_name + ".pkl" in meta_learners_saved:
         print("pl")
         raise gr.Error("A meta-learner with the same ID is present in the repository.")
@@ -192,6 +203,3 @@ def save_meta_learner(model, model_name, model_metadata):
 
     gr.Info("Meta-Learner Metadata Repository Updated Successfully!")
 
-
-# def refresh_meta_learner_repository(meta_learner_repo):
-  #  meta_learners =

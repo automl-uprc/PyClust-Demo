@@ -1,0 +1,24 @@
+/* Customize tab label font size */
+.tabs button {
+    font-size: 18px;  /* Adjust font size as desired */
+    font-weight: bold;  /* Optional: make text bold */
+    }
+
+
+/* Style the span inside the button */
+#my_accordion button span {
+    font-weight: bold; /* Bold text for emphasis */
+    font-size: 20px; /* Even larger text for span */
+    }
+
+#border_col {
+    border: 2px solid #853403;
+    padding: 10px;
+    margin: 5px;
+    border-radius: 5px;
+    }
+
+
+#title_button {
+    width: 100px;
+}

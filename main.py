@@ -5,84 +5,32 @@ from demo_code.tab_1 import *
 from demo_code.tab_2 import *
 from demo_code.tab_3 import *
 
-
 import os
 
-
-#on_load
+# On demo startup: (1) load trained meta-learner metadata, (2) Load number of datasets
 mldf = meta_learners_repository()
-# (2) no datasets in the repository
+no_datasets = on_startup_read_no_datasets()
 
 
-css = """
-/* Customize tab label font size */
-.tabs button {
-    font-size: 18px;  /* Adjust font size as desired */
-    font-weight: bold;  /* Optional: make text bold */}
-    
-
-/* Style the span inside the button */
-#my_accordion button span {
-    font-weight: bold; /* Bold text for emphasis */
-    font-size: 20px; /* Even larger text for span */
-}
-
-#border_col {
-    border: 2px solid #853403;
-    padding: 10px;
-    margin: 5px;
-    border-radius: 5px;
-
-#table {
- font-size: 0.5em;
-}
-
-}
-"""
-
-def update_cache_results(data_id_, master_results_):
-    master_results_[data_id_] = {"KMeans": [], "DBSCAN": []}
-    return master_results_
-
-
-def control_data_visibility(data_method):
-    """
-    Changes layout for data upload/generation section
-    Args:
-        data_method (str): will be either Upload or Generate
-
-    Returns:
-        - 1 visibility update: Data upload Column
-        - 2 visibility update: Data Generation Column
-    """
-
-    if data_method == "Upload":
-        return gr.update(visible=False), gradio.update(visible=True)
-    elif data_method == "Generate":
-        return gr.update(visible=True), gradio.update(visible=False)
-
-
-
-
-# Create the Gradio interface
-with gr.Blocks(css=css) as demo:
+with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
     # Cache data
     df = gr.State()
-    df_needs_reduction = gr.State()
     data_id = gr.State()
+
+    df_needs_reduction = gr.State()
+    df_reduced = gr.State({"MDS": None, "PCA": None, "T-SNE": None})
+
+    operations_complete = gr.State({"meta-features-extraction": False, "configurations-search": False,
+                                    "results_saved_to_repo": False})
 
     meta_learner_trained = gr.State()
     trained_meta_learner_metadata = gr.State()
 
-    df_reduced = gr.State({"MDS": None, "PCA": None, "T-SNE": None})
-    labels = gr.State()
     best_config_per_cvi = gr.State({})
-    best_config_browse = gr.State()
-    custom_config_browse = gr.State()
 
     # Models tested are temporarily being saved in memory
     master_results = gr.State({})
-    cache_results = gr.State({})
+
     data_id.change(update_cache_results, inputs=[data_id, master_results], outputs=[master_results])
 
     # <-----------------------------Demo Titles ✓-------------------------------------------------------------->
@@ -94,11 +42,15 @@ with gr.Blocks(css=css) as demo:
         demo_mf_completed = gr.Markdown("<h2 style='text-align: right; color:#3ebefe;'>Meta-Features: ❌</h2>")
         demo_ms_completed = gr.Markdown("<h2 style='text-align: left; color:#3ebefe;'>Model Search: ❌</h2>")
 
+    with gr.Row(visible=False) as title_row_2:
+        with gr.Column():
+            add_data_to_repo_title = gr.Markdown(
+                "<h2 style='text-align: right; color:#3ebefe;'>Dataset in Repository: ❌</h2>")
+        with gr.Column():
+            add_data_to_repo_btn = gr.Button("Add", size="sm", elem_id="title_button")
 
-    # <-----------------------------Data Loading ✓-------------------------------------------------------------->
-    with gr.Tab('(1) Data Loading/Generation'):
-
-
+    # <-----------------------------Data Loading ✓-------------------------------------------
+    with gr.Tab('(1) Data Loading/Online Phase'):
         with gr.Accordion("Usage Manual", open=True, elem_id="my_accordion"):
             gr.Markdown("""
                         # Welcome to the **PyClust Demo**! 🎉
@@ -115,7 +67,7 @@ with gr.Blocks(css=css) as demo:
 
                         """)
 
-        with gr.Accordion("Load Data", open=False, elem_id="my_accordion"):
+        with gr.Accordion("Generate/Load Data", open=False, elem_id="my_accordion"):
             # Only visible after dataset is loaded or generated.
             with gr.Column(visible=False) as data_success_row:
                 success_msg = gr.Markdown()
@@ -128,16 +80,18 @@ with gr.Blocks(css=css) as demo:
 
                 # - Data Upload Column
             with gr.Column(visible=False) as data_upload_row:
-
+                gr.Markdown(
+                    "Warning!: PyClust has been developed for numeric data. Please only upload datasets in .csv form "
+                    "with scalar values.")
                 upload_csv_options = gr.CheckboxGroup(["Headers", "Scale Data (MinMax)"],
-                                                              label="Preprocessing Options")
+                                                      label="Preprocessing Options")
                 csv_file = gr.File(label="Upload your CSV file")
 
-
                 # - Data Generation Column
+
             with gr.Column(visible=False) as data_generation_row:
                 synthetic_data_method = gr.Radio(choices=["Blobs", "Moons"],
-                                                         label="Choose Synthetic Data Generation Type", value="Blobs")
+                                                 label="Choose Synthetic Data Generation Type", value="Blobs")
                 no_instances_input = gr.Number(label='No Instances', value=100)
                 no_features_input = gr.Number(label='No Features', value=2)
                 generate_data_btn = gr.Button('Generate Synthetic Data')
@@ -150,31 +104,31 @@ with gr.Blocks(css=css) as demo:
         with gr.Accordion("Algorithm Selection!", open=False, elem_id="my_accordion"):
             gr.Markdown("""Prediction : KMEANS""", visible=False)
             with gr.Column():
-                gr.Dropdown(["select Meta Learner", "ML model 2"], interactive=True)
+                gr.Dropdown(label="select Meta Learner", choices=["ML model 2"], interactive=True)
                 gr.Button("Predict !")
 
-        # On change for tab 1
+        # On change/Click for tab 1
         csv_file.change(load_csv, inputs=[csv_file, upload_csv_options, data_id_textbox],
-                            outputs=[data_method_row, data_upload_row, data_generation_row, data_id_textbox,
-                                     data_success_row, success_msg, df, data_id, demo_title_dataset_loaded, title_row])
+                        outputs=[data_method_row, data_upload_row, data_generation_row, data_id_textbox,
+                                 data_success_row, success_msg, df, data_id, demo_title_dataset_loaded, title_row])
+
         generate_data_btn.click(generate_data, inputs=[synthetic_data_method, no_instances_input,
-                                                                       no_features_input, data_id_textbox],
-                                                outputs=[data_method_row, data_upload_row, data_generation_row,
-                                                         data_success_row, success_msg, df, data_id,
-                                                         demo_title_dataset_loaded, title_row])
+                                                       no_features_input, data_id_textbox],
+                                outputs=[data_method_row, data_upload_row, data_generation_row,
+                                         data_success_row, success_msg, df, data_id,
+                                         demo_title_dataset_loaded, title_row])
 
-        change_data_btn.click(change_data_update_visibility, outputs=[data_method_row, data_success_row, data_method])
-
-
+        change_data_btn.click(change_data_update_visibility, inputs=operations_complete,
+                              outputs=[data_method_row, data_success_row, data_method, operations_complete])
 
         data_method.change(control_data_visibility, inputs=data_method, outputs=[data_generation_row,
-                                                                                      data_upload_row])
+                                                                                 data_upload_row])
 
-        mf_calculate_btn.click(mf_process, inputs=[df, data_id], outputs= [mf_calculated,download_mf_btn,
-                                                                           demo_mf_completed]) #
+        mf_calculate_btn.click(mf_process, inputs=[df, data_id, operations_complete], outputs=[mf_calculated, download_mf_btn,
+                                                                          operations_complete])  #
 
     # <-----------------------------Exhaustive Search ✓-------------------------------------------------------------->
-    with gr.Tab('(2) Parameter Search') :
+    with gr.Tab('(2) Parameter Search'):
         not_loaded_message = gr.Markdown("""
                                         <div style="display: flex; justify-content: center; align-items: center; 
                                         height: 100%;">
@@ -183,13 +137,12 @@ with gr.Blocks(css=css) as demo:
                                         """, elem_id="centered-message")
 
         with gr.Tab("Grid Search", visible=False) as model_search_tab:
-
             with gr.Column() as es_col:
                 with gr.Column():
                     es_start_btn = gr.Button("Start Exhaustive Search")
                     search_space_input = gr.Textbox(value=search_space, label='Set Search Space',
-                                                        interactive=True,
-                                                        lines=12)
+                                                    interactive=True,
+                                                    lines=12)
 
             with gr.Column() as es_success_row:
                 es_success_msg = gr.Markdown(visible=False)
@@ -201,23 +154,20 @@ with gr.Blocks(css=css) as demo:
                     hist_img = gr.Image(interactive=False)
                     pie_img = gr.Image(interactive=False)
 
-            es_start_btn.click(exhaustive_search, inputs=[master_results, data_id, df, search_space_input],
+            es_start_btn.click(exhaustive_search, inputs=[master_results, data_id, df, search_space_input,
+                                                          operations_complete],
                                outputs=[master_results, es_success_msg, dl_results_btn, pie_img, hist_img,
-                                        best_config_per_cvi, demo_ms_completed])
+                                        best_config_per_cvi])
 
-
-    # <-----------------------------Clustering Exploration ✓--------------------------------------------------------->
+        # <-----------------------------Clustering Exploration ✓--------------------------------------------------------->
         with gr.Tab('Clustering Exploration', visible=False) as clustering_exploration_tab:
-
-            best_config_row = gr.Row(visible=True)
+            gr.Markdown(""" In this page you can search the exhaustive search results for the best model as indicated 
+                                        by a cvi and visually explore the clusters. """)
+            best_config_row = gr.Row(visible=True, equal_height=True)
             reduction_column = gr.Column(visible=False)
             results_explore_column = gr.Column(visible=True)
 
-            gr.Markdown(""" In this page you can search the exhaustive search results for the best model as indicated 
-                            by a cvi and visually explore the clusters. """)
-
             with best_config_row:
-
                 with gr.Column(scale=3):
                     best_config_index_dropdown = gr.Dropdown(choices=cvi_list, multiselect=False,
                                                              label="Select Index", visible=True, interactive=True,
@@ -229,20 +179,17 @@ with gr.Blocks(css=css) as demo:
                 gr.Markdown("""Provided Dataset has more than two Features. 
                             Please select a method to reduce dimensions to 2.""")
 
-                reduction_choices = gr.Radio(choices=[ "PCA","T-SNE", "MDS"], value="")
+                reduction_choices = gr.Radio(choices=["PCA", "T-SNE", "MDS"], value="")
 
             with results_explore_column:
-
                 with gr.Row():
                     with gr.Column():
                         # Dim Reduction Functionality.
 
                         # reduction_choices.change(dimensionality_reduction, inputs=[df, reduction_choices, df_reduced],
-                                            #     outputs=[df_reduced])
+                        #     outputs=[df_reduced])
                         clusters_visualized = gr.Plot()
                         # Clustering Visualization
-
-
 
             # -> UI logic
             # (1) Show plot if dataset_dim ==2 else: show reduction options
@@ -251,10 +198,10 @@ with gr.Blocks(css=css) as demo:
                                                       df_needs_reduction],
                                               outputs=[best_config, df_reduced, clusters_visualized])
 
-
     # <-----------------------------Repository --------------------------------------------------------->
     with gr.Tab('(3) Repository'):
-        gr.Markdown("<h2 style='text-align: center; color:#3ebefe;'>Number of Datasets in The Repository: </h2>")
+        gr.Markdown(
+            f"<h2 style='text-align: center; color:#3ebefe;'>Number of Datasets in The Repository: {no_datasets}</h2>")
 
         with gr.Accordion("Trained Meta-Learners", elem_id="my_accordion"):
             gr.Markdown("""
@@ -263,12 +210,9 @@ with gr.Blocks(css=css) as demo:
             gr.Dataframe(mldf, elem_id="small")
 
         with gr.Accordion("Train Meta Learner", elem_id="my_accordion"):
-            gr.Markdown("""To train a new meta-learner please configure: (a) which classifier to user (meta-learner)
-                            , (b) which meta-features to use for the datasets (independent variables), (c) how to select the best
-                             algorithm for each dataset (dependent variable) """)
+            gr.Markdown("""To train a new meta-learner please configure the following and press the "train button".""")
             train_ml_btn = gradio.Button("Train")
             with gr.Row():
-
                 with gr.Column(elem_id="border_col"):
                     gr.Markdown("""(A) Configure The Meta Learner Algorithm""")
                     ml_select = gr.Radio(["KNN", "DT"], label="Select Classifier", value="KNN")
@@ -304,15 +248,11 @@ with gr.Blocks(css=css) as demo:
                     best_config_ml = gr.Dropdown(choices=cvi_list, multiselect=False,
                                                  label="Select Index", visible=False, interactive=True)
 
-
                     best_alg_selection.change(
                         lambda x: gr.update(visible=True) if x == "Specific CVI" else gr.update(visible=False),
                         inputs=best_alg_selection, outputs=best_config_ml)
 
-
-
         with gr.Accordion("Meta-Learner Results", elem_id="my_accordion"):
-
             with gr.Row():
                 ml_id = gr.Textbox(label="Provide meta learner ID", interactive=True)
                 ml_add_to_repo_btn = gr.Button("Add meta-learner to repository ")
@@ -321,22 +261,23 @@ with gr.Blocks(css=css) as demo:
                 ml_cm_img = gr.Image()
                 ml_meta_data = gr.JSON()
 
-
         train_ml_btn.click(train_meta_learner,
                            inputs=[ml_select, mf_selection, best_alg_selection] +
                                   [knn_options[x] for x in knn_options.keys()] +
                                   [dt_options[x] for x in dt_options] + [mf_search_type, mf_search_choices] +
                                   [best_config_ml],
-                           outputs= [ml_cm_img, ml_meta_data, meta_learner_trained] )
+                           outputs=[ml_cm_img, ml_meta_data, meta_learner_trained])
 
         ml_add_to_repo_btn.click(save_meta_learner, inputs=[meta_learner_trained, ml_id, ml_meta_data])
-
 
     df.change(on_df_load, inputs=df, outputs=[df_needs_reduction, model_search_tab, clustering_exploration_tab,
                                               not_loaded_message])
 
     df_needs_reduction.change(df_needs_dimred, inputs=df_needs_reduction, outputs=reduction_column)
 
+    operations_complete.change(on_operations_change, inputs=[operations_complete],
+                               outputs=[demo_mf_completed, demo_ms_completed, title_row_2, add_data_to_repo_title,
+                                        add_data_to_repo_btn])
 
 # Create repo folders for meta-features and es results
 cwd = os.getcwd()
@@ -352,8 +293,4 @@ if not os.path.isdir(mf_path):
 if not os.path.isdir(es_path):
     os.mkdir(es_path)
 
-
-
 demo.launch(share=False)
-
-

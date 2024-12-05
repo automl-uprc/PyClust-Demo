@@ -1,1 +1,1 @@
-{"popa3": {"no_datasets": 30, "evaluation": {"method": "Leave-One-Out", "accuracy": 10}, "meta-features": {"number": 10, "based_on": "category"}, "classes_that_appear_in_data": ""}}
+{"popa3": {"no_datasets": 30, "evaluation": {"method": "Leave-One-Out", "accuracy": 10}, "meta-features": {"number": 10, "based_on": "category"}, "classes_that_appear_in_data": ""}, "asd": {"no_datasets": 30, "evaluation": {"method": "Leave-One-Out", "accuracy": 10}, "meta-features": {"number": 10, "based_on": "category"}, "classes_that_appear_in_data": ""}}
