@@ -8,13 +8,17 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install the dependencies in the container
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire project into the container (including custom_code)
-COPY . .
+COPY . /app/
+
+RUN pip install -e ./local_library
 
 # Expose the port Gradio will run on
 EXPOSE 7860
 
-# Command to run the Gradio app
-CMD ["python", "tests\gradio_test.py"]
+# Specify the command to run your demo
+CMD ["python", "pyclust_demo/main.py"]
+
+

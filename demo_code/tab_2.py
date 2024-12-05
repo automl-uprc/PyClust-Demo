@@ -236,7 +236,7 @@ def create_plots_from_es(best_config_per_cvi):
     plt.savefig("no_clusters_hist.png", dpi=300)  # Save with high resolution for clarity
     plt.close()
 
-def exhaustive_search(master_results, data_id, df, json_input, operations_state):
+def exhaustive_search( data_id, df, json_input, operations_state):
     """
 
     Args:
@@ -288,7 +288,6 @@ def exhaustive_search(master_results, data_id, df, json_input, operations_state)
                 trial_values["labels"] = list([int(x) for x in list(labels_)])
                 trial_values["cvi"] = cvi
 
-                # master_results[data_id][key_alg].append(trial_values)
                 master[key_alg].append(trial_values)
 
 
@@ -301,7 +300,7 @@ def exhaustive_search(master_results, data_id, df, json_input, operations_state)
     create_plots_from_es(best_config_per_cvi)
 
     operations_state["configurations-search"] = True
-    return (master_results, gr.update(visible=True, value="<h2 style= text-align:center;>ES success</h2>"),
+    return ( gr.update(visible=True, value="<h2 style= text-align:center;>ES success</h2>"),
                 gr.update(visible=True), "best_alg_pie.png",
                 "no_clusters_hist.png", best_config_per_cvi,
                 operations_state)

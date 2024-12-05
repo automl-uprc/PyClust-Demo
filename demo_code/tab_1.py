@@ -7,6 +7,7 @@ import sys
 import traceback
 
 import pandas as pd
+from gensim.utils import pickle
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.datasets import make_blobs, make_moons
 import gradio as gr
@@ -14,6 +15,7 @@ import gradio as gr
 import sys
 from pyclustkit.metalearning import MFExtractor
 import pyclustkit
+import pickle
 
 # ----------------------Load Data----------------------------------------------------
 def change_data_update_visibility(operations_status):
@@ -142,3 +144,38 @@ def mf_process(data, data_id, operations_status):
     except Exception as e:
         print(e)
         traceback.print_exc()
+
+# --- (3) --- Meta-Learning
+
+def load_model_and_predict(model_choice, data_id):
+    # --- (1) load model
+    with open(f"repository/meta_learners/models/{model_choice}.pkl", "rb") as f:
+        model = pickle.load(f)
+
+    # --- (2) load dataset meta-features/ raise error if they have not been calculated.
+    if not os.path.exists(f"results/mf/{data_id}.json"):
+        raise gr.Error(f"Meta-Feature record for dataset with ID: {data_id} is not present")
+    else:
+        with open(f"results/mf/{data_id}.json", "r") as mf_f:
+            mfjson = json.load(mf_f)
+
+    # --- (3) Filter Meta-features to use for prediction
+    with open(f"repository/meta_learners/meta-data.json", "r") as mf_f:
+        metadata_json = json.load(mf_f)[model_choice]
+
+    mfe = MFExtractor()
+    mf_to_keep = []
+
+    if metadata_json["meta-features"]["based_on"] == "Category":
+        for sel in metadata_json["meta-features"]["selection"]:
+            mf_to_keep += mfe.search_mf(category=sel, search_type="names")
+    elif metadata_json["meta-features"]["based_on"] == "Paper":
+        for sel in metadata_json["meta-features"]["selection"]:
+            mf_to_keep += mfe.search_mf(included_in=sel, search_type="names")
+
+    print(mf_to_keep)
+    mfdf = pd.json_normalize({k:v for k,v in mfjson.items() if k in mf_to_keep}).fillna(0)
+    print(mfdf.columns)
+    prediction = model.predict(mfdf)
+    print(prediction)
+    return prediction[0]

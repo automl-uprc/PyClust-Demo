@@ -158,11 +158,12 @@ def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
     gr.Info("Meta Learner trained successfully!")
     ml_meta_data  = {"no_datasets": master_df.shape[0],
                      "evaluation": {"method": "Leave-One-Out", "accuracy": accuracy_score(y_true, y_pred)},
-                     "meta-features": {"number": len(mfdf.columns), "based_on": "category", "selection": alg_options[4]},
+                     "meta-features": {"number": len(mfdf.columns), "based_on": alg_options[3], "selection": alg_options[4]},
                      "best_algorithm": {"based_on": best_alg, "selection": alg_options[5]},
                      "classes_that_appear_in_data": len(np.unique(y)) }
 
     return "confusion_matrix_loocv.png", ml_meta_data, alg
+
 
 def save_meta_learner(model, model_name, model_metadata):
     """

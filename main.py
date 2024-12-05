@@ -8,7 +8,7 @@ from demo_code.tab_3 import *
 import os
 
 # On demo startup: (1) load trained meta-learner metadata, (2) Load number of datasets
-mldf = meta_learners_repository()
+mldf, ml_choices = meta_learners_repository()
 no_datasets = on_startup_read_no_datasets()
 
 
@@ -28,11 +28,6 @@ with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
 
     best_config_per_cvi = gr.State({})
 
-    # Models tested are temporarily being saved in memory
-    master_results = gr.State({})
-
-    data_id.change(update_cache_results, inputs=[data_id, master_results], outputs=[master_results])
-
     # <-----------------------------Demo Titles ✓-------------------------------------------------------------->
 
     demo_title = gr.Markdown("<h1 style='text-align: center; overflow: hidden; font-size: 50px;'>PyClust Demo</h1>")
@@ -43,10 +38,10 @@ with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
         demo_ms_completed = gr.Markdown("<h2 style='text-align: left; color:#3ebefe;'>Model Search: ❌</h2>")
 
     with gr.Row(visible=False) as title_row_2:
-        with gr.Column():
+        with gr.Column(0.9):
             add_data_to_repo_title = gr.Markdown(
                 "<h2 style='text-align: right; color:#3ebefe;'>Dataset in Repository: ❌</h2>")
-        with gr.Column():
+        with gr.Column(scale=0.8):
             add_data_to_repo_btn = gr.Button("Add", size="sm", elem_id="title_button")
 
     # <-----------------------------Data Loading ✓-------------------------------------------
@@ -102,10 +97,10 @@ with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
             mf_calculated = gr.JSON()
 
         with gr.Accordion("Algorithm Selection!", open=False, elem_id="my_accordion"):
-            gr.Markdown("""Prediction : KMEANS""", visible=False)
+            prediction = gr.Markdown("")
             with gr.Column():
-                gr.Dropdown(label="select Meta Learner", choices=["ML model 2"], interactive=True)
-                gr.Button("Predict !")
+                ml_model_choice = gr.Dropdown(label="select Meta Learner", choices=ml_choices, interactive=True)
+                predict_btn = gr.Button("Predict !")
 
         # On change/Click for tab 1
         csv_file.change(load_csv, inputs=[csv_file, upload_csv_options, data_id_textbox],
@@ -127,6 +122,8 @@ with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
         mf_calculate_btn.click(mf_process, inputs=[df, data_id, operations_complete], outputs=[mf_calculated, download_mf_btn,
                                                                           operations_complete])  #
 
+        predict_btn.click(load_model_and_predict, inputs=[ml_model_choice, data_id ],
+                          outputs=[prediction])
     # <-----------------------------Exhaustive Search ✓-------------------------------------------------------------->
     with gr.Tab('(2) Parameter Search'):
         not_loaded_message = gr.Markdown("""
@@ -154,10 +151,10 @@ with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
                     hist_img = gr.Image(interactive=False)
                     pie_img = gr.Image(interactive=False)
 
-            es_start_btn.click(exhaustive_search, inputs=[master_results, data_id, df, search_space_input,
+            es_start_btn.click(exhaustive_search, inputs=[ data_id, df, search_space_input,
                                                           operations_complete],
-                               outputs=[master_results, es_success_msg, dl_results_btn, pie_img, hist_img,
-                                        best_config_per_cvi])
+                               outputs=[ es_success_msg, dl_results_btn, pie_img, hist_img,
+                                        best_config_per_cvi, operations_complete])
 
         # <-----------------------------Clustering Exploration ✓--------------------------------------------------------->
         with gr.Tab('Clustering Exploration', visible=False) as clustering_exploration_tab:

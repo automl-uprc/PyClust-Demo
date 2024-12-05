@@ -21,13 +21,17 @@ def meta_learners_repository(ml_metadata_path="repository/meta_learners/meta-dat
     with open(ml_metadata_path, "r") as f:
         d = json.load(f)
 
+    if len(d.keys()) == 0:
+        return  pd.DataFrame, []
+
     mldf = pd.DataFrame()
     for k in d.keys():
         row = pd.json_normalize(d[k])
         row.insert(0, "ML-ID", k)
         mldf = pd.concat([mldf, row])
 
-    return mldf
+
+    return mldf, list(mldf['ML-ID'])
 
 
 def on_startup_read_no_datasets():
@@ -44,13 +48,18 @@ def on_startup_read_no_datasets():
     return file_count
 
 
-def update_cache_results(data_id_, master_results_):
-    master_results_[data_id_] = {"KMeans": [], "DBSCAN": []}
-    return master_results_
-
-
 def on_operations_change(state):
-    print("triggered")
+    """
+    Controls visibility based on operations marked as complete.
+
+    Args:
+        state (dict): a dictionary containing operations as keys and boolean values to mark their status.
+                        Example: {"meta-features-extraction":False}
+
+    Returns:
+        (tuple): A tuple that containes the messages as (str) to be displayed in the UI
+    """
+
     operation_results_success = {
         "meta-features-extraction": "<h2 style='text-align: right; color:#3ebefe;'>Meta-Features: ✅</h2>",
         "configurations-search": "<h2 style='text-align: left; color:#3ebefe;'>Model Search: ✅</h2>",
@@ -105,18 +114,17 @@ def on_df_load(df):
 
 
 def df_needs_dimred(df_needs_dim_red):
+    # ToDo: Could may be merged with - on_df_load_ -
     if df_needs_dim_red:
         return gr.update(visible=True)
     else:
         return gr.update(visible=False)
 
 
-
-
-
 def control_data_visibility(data_method):
     """
-    Changes layout for data upload/generation section
+    Changes layout for data upload/generation section depending on user selection
+
     Args:
         data_method (str): will be either Upload, Generate or None
 
