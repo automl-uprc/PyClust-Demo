@@ -1,4 +1,5 @@
 import gradio
+import gradio.themes
 
 from demo_code.generic import *
 from demo_code.tab_1 import *
@@ -12,7 +13,7 @@ mldf, ml_choices = meta_learners_repository()
 no_datasets = on_startup_read_no_datasets()
 
 
-with gr.Blocks(css_paths=r"demo_code\demo_style.css") as demo:
+with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code\demo_style.css") as demo:
     # Cache data
     df = gr.State()
     data_id = gr.State()
