@@ -22,7 +22,7 @@ It is basically built on
 The main software needed are:
 
 - Docker
-- Python 3.10
+- Python>=3.12
 
 
 ## Installation
