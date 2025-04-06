@@ -1,6 +1,6 @@
 # PyClust-Demo
  
-## Overview
+## ✏️ Overview
 PyClust is a tool that enables model search, meta-learning and evaluation tools for clustering. 
 
 - **Meta Learning** : Use one of the pretrained meta-learners for algorithm selection or train your own based on a rich 
@@ -11,7 +11,7 @@ interface 46 Cluster validity indices as developed in the pyclustkit library.
 
 PyClust is built as a Python library that can be installed through PyPI, but can also be used through a Gradio-based user interface and Docker image.
 
-## Requirements
+## 📓 Requirements
 
 The demo is based upon certain python libraries which are listed in the requirements.txt file. 
 It is basically built on
@@ -25,11 +25,11 @@ The main software needed are:
 - Python>=3.12
 
 
-## Installation
+## 🔁 Installation
 
 There are three ways that you can use PyClust:
 
-- By installing PyClust library:
+- ✅ By installing PyClust library:
 ```comandline
 pip install pyclustkit
 ```
@@ -42,10 +42,10 @@ mfe = MFExtractor(D).calculate_mf(category="descriptive")
 or optimally compute internal CVIs
 ```python
 from pyclustkit.eval import CVIToolbox
-cvit = CVIToolbox(D, labels).calculate_cvi(cvi=["dunn"])
+cvit = CVIToolbox(D, labels).calculate_cvi(cvi=["dunn", "silhouette"])
 ```
 
-- By cloning the GitHub repository:
+- 🌀 By cloning the GitHub repository:
 
 You can clone this repository with the following commands
 ```commandline
@@ -58,16 +58,19 @@ and run main() ti use the Gradio-based user interface
 python main.py
 ```
 
-- Through Docker:
+- 🐳 Through Docker:
 
 You can build and run the image with the following in CLI, assuming Docker is installed and running.
 ```commandline 
-docker build -t pyclust-demo-img
-docker run -d -p 7860:7860 --name my-app-container my-app-image
+docker run -p 7861:7861 giannispoy/pyclust
+```
+After the successful run of the image, open a browser and go to
+```commandline
+localhost:7861
 ```
 
 
-## Contributions/Contact
+## 🤝 Contributions/Contact
 Contributions are welcome! Please open an issue or submit a pull request if you'd like to improve the project.
 
 Mail us  automl.uprc@gmail.com
