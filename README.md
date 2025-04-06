@@ -9,6 +9,7 @@ set of state-of-the art meta-features.
 - **Model Search**: Out of the box grid search implementation with easy to define parameter space in the graphical 
 interface 46 Cluster validity indices as developed in the pyclustkit library. 
 
+PyClust is built as a Python library that can be installed through PyPI, but can also be used through a Gradio-based user interface and Docker image.
 
 ## Requirements
 
@@ -25,14 +26,45 @@ The main software needed are:
 
 
 ## Installation
-You can build and run the image with the following in CLI, assuming Docker is installed and running.
+
+There are three ways that you can use PyClust:
+
+- By installing PyClust library:
+```comandline
+pip install pyclustkit
+```
+
+PyClust offers easy to use commands to extract several meta-features from the literature
+```python
+from pyclustkit.metalearning import MFExtractor
+mfe = MFExtractor(D).calculate_mf(category="descriptive")
+```
+or optimally compute internal CVIs
+```python
+from pyclustkit.eval import CVIToolbox
+cvit = CVIToolbox(D, labels).calculate_cvi(cvi=["dunn"])
+```
+
+- By cloning the GitHub repository:
+
+You can clone this repository with the following commands
 ```commandline
 git clone https://github.com/your-username/PyClust-Demo.git  
 cd PyClust-Demo   
-docker build -t pyclust-demo-img . 
-docker run pyclust-demo-img.
 ```
-Alternatively you can find this version built into an image at the folloiwing link: 
+
+and run main() ti use the Gradio-based user interface
+```commandline
+python main.py
+```
+
+- Through Docker:
+
+You can build and run the image with the following in CLI, assuming Docker is installed and running.
+```commandline 
+docker build -t pyclust-demo-img
+docker run -d -p 7860:7860 --name my-app-container my-app-image
+```
 
 
 ## Contributions/Contact
