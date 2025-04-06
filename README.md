@@ -16,7 +16,7 @@ PyClust is built as a Python library that can be installed through PyPI, but can
 The demo is based upon certain python libraries which are listed in the requirements.txt file. 
 It is basically built on
 
-- gradio 
+- Gradio 
 - pyclustkit
 
 The main software needed are:
@@ -45,7 +45,7 @@ from pyclustkit.eval import CVIToolbox
 cvit = CVIToolbox(D, labels).calculate_cvi(cvi=["dunn", "silhouette"])
 ```
 
-- 🌀 By cloning the GitHub repository:
+- ✅ By cloning the GitHub repository:
 
 You can clone this repository with the following commands
 ```commandline
