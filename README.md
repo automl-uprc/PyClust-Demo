@@ -68,6 +68,8 @@ After the successful run of the image, open a browser and go to
 ```commandline
 localhost:7861
 ```
+and the user interface will be accessible
+![App Screenshot](docker.png)
 
 
 ## 🤝 Contributions/Contact
