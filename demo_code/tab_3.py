@@ -18,6 +18,9 @@ from collections import  Counter
 
 import pickle
 
+from demo_code.generic import meta_learners_repository
+
+
 mfe = MFExtractor()
 mf_categories = mfe.mf_categories
 mf_papers = mfe.mf_papers
@@ -57,9 +60,6 @@ def toggle_mf_selection_options(method):
         return gr.update(visible=False), gr.update(visible=False)
 
 def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
-
-    print(algorithm, mf , best_alg, alg_options)
-
     # ---(1)--- Configure Classification algorithm
     if algorithm == "KNN":
         alg = KNeighborsClassifier(n_neighbors=alg_options[0], metric=alg_options[1])
@@ -83,24 +83,37 @@ def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
     elif mf == "All":
         mf_to_include = mfe.search_mf(search_type="names")
 
-    for mf_ in os.listdir("repository/meta_features/synthetic_datasets"):
-        with open(os.path.join(os.getcwd(), "repository/meta_features/synthetic_datasets", mf_), "r") as f:
-            mf_dict = json.load(f)
-            mf_dict = {k: v for k,v in mf_dict.items() if k in mf_to_include}
+    # ---> Parse <repository> folder for json files that contain meta-features
+    base_path = os.path.join(os.getcwd(), "repository/meta_features")
+    for dirpath, dirnames, filenames in os.walk(base_path):
+        for filename in filenames:
+            if filename.endswith(".json"):
+                file_path = os.path.join(dirpath, filename)
+                with open(file_path, "r") as f:
+                    mf_dict = json.load(f)
+                    mf_dict = {k: v for k, v in mf_dict.items() if k in mf_to_include}
 
-            mf_df = pd.json_normalize(mf_dict)
-            mf_df['dataset'] = mf_.replace(".json", "").replace("_", "-")
+                    mf_df = pd.json_normalize(mf_dict)
+                    mf_df['dataset'] = filename.replace(".json", "").replace("_mf", "").replace("_", "-")
 
-            mfdf = pd.concat([mfdf,mf_df], ignore_index=True)
+                    mfdf = pd.concat([mfdf, mf_df], ignore_index=True)
 
     mfdf = mfdf.reset_index(drop=True)
-
+    print(f"Meta Features loaded successfully with {mfdf.shape}")
 
     # ---(3)--- Get Labels
-    with open("repository/best_alg_per_cvi/synthetic_datasets_best_alg.json", "r") as f:
-        master_cvi_dict = json.load(f)
-    best_alg_per_dataset = []
+    input_dir = "repository/best_alg_per_cvi"
+    master_cvi_dict = {}
 
+    for dirpath, _, filenames in os.walk(input_dir):
+        for filename in filenames:
+            if filename.endswith(".json"):
+                file_path = os.path.join(dirpath, filename)
+                with open(file_path, "r") as f:
+                    key = filename.replace(".json", "").replace("_best_alg","")
+                    master_cvi_dict[key] = json.load(f)
+
+    best_alg_per_dataset = []
     if best_alg == "Most Popular Alg":
         for key in master_cvi_dict:
             count_cvi_pop = Counter(list(master_cvi_dict[key].values()))
@@ -117,18 +130,21 @@ def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
 
 
     master_df = pd.merge(mfdf, labels_df, on="dataset", how="outer").reset_index(drop=True)
+    master_df.replace([np.inf, -np.inf], np.nan, inplace=True)
     master_df = master_df.fillna(0)
 
 
     # ---(4)--- Algorithm Training
     X = master_df.drop(columns=["dataset", "algorithm"])
     y = master_df["algorithm"]
-
+    print("-0--------X")
+    print(X)
+    print("-0--------y")
+    print(y)
+    y_true, y_pred = [], []
     # If the datasets are few, evaluate with Leave-One-Out
     if master_df.shape[0] <= 40:
         loo = LeaveOneOut()
-        y_true = []
-        y_pred = []
 
         for train_index, test_index in loo.split(master_df):
             x_train, x_test = X.iloc[train_index], X.iloc[test_index]
@@ -138,6 +154,17 @@ def train_meta_learner(algorithm, mf, best_alg, *alg_options ):
 
             y_true.append(y_test.iloc[0])  # Single test instance
             y_pred.append(alg.predict(x_test.iloc[0].values.reshape(1,-1))[0])
+    else:
+        loo = LeaveOneOut()
+
+        for train_index, test_index in loo.split(master_df):
+            x_train, x_test = X.iloc[train_index], X.iloc[test_index]
+            y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+            alg.fit(x_train, y_train)
+
+            y_true.append(y_test.iloc[0])  # Single test instance
+            y_pred.append(alg.predict(x_test.iloc[0].values.reshape(1, -1))[0])
 
     # ---(5)--- Return Confusion Matrix
     cm = confusion_matrix(y_true, y_pred)
@@ -184,7 +211,6 @@ def save_meta_learner(model, model_name, model_metadata):
     # ---(2)--- Check if any meta-learning model with the same name exists
     meta_learners_saved = os.listdir("repository/meta_learners/models")
     if model_name + ".pkl" in meta_learners_saved:
-        print("pl")
         raise gr.Error("A meta-learner with the same ID is present in the repository.")
 
     # ---(3)--- Save the trained meta-learning model
@@ -193,7 +219,6 @@ def save_meta_learner(model, model_name, model_metadata):
     gr.Info("Model saved Successfully!")
 
     # ---(4)--- Update meta-learner metadata in the repository
-    print(model_metadata)
     with open(f"repository/meta_learners/meta-data.json", "r") as f:
         ml_metadata = json.load(f)
 
@@ -204,3 +229,6 @@ def save_meta_learner(model, model_name, model_metadata):
 
     gr.Info("Meta-Learner Metadata Repository Updated Successfully!")
 
+    mldf, ml_choices = meta_learners_repository()
+
+    return mldf, gr.update(choices=ml_choices)

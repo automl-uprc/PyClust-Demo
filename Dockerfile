@@ -1,24 +1,27 @@
-# Base image for Python
 FROM python:3.12
 
-# Set the working directory in the container
+# Install system dependencies required to build dgl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gfortran \
+    libblas-dev \
+    liblapack-dev \
+    python3-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and set working directory
+RUN pip install --upgrade pip
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Copy requirements and install dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -f https://data.dgl.ai/wheels/torch-2.3/repo.html
 
-# Install the dependencies of the gradio app in the container
-# RUN pip install --upgrade pip setuptools wheel
-# RUN apt-get update && apt-get install -y gfortran
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire project into the container (including custom_code)
-COPY . /app/
+# Copy application code and expose port
+COPY . .
+EXPOSE 7861
 
-# Expose the port Gradio will run on
-EXPOSE 7860
-
-# Specify the command to run your demo
+# Specify command to run the app
 CMD ["python", "main.py"]
-
-

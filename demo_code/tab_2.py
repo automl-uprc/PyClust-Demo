@@ -1,3 +1,5 @@
+from json import JSONDecodeError
+
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, KMeans, AffinityPropagation, SpectralClustering
 import numpy as np
 import json
@@ -10,7 +12,7 @@ from pyclustkit.eval import CVIToolbox
 from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import PCA
 import matplotlib.colors as mcolors
-
+from pathlib import Path
 
 
 cvi_list = list(CVIToolbox(np.array([1, 2]), np.array([1, 2])).cvi_methods_list.keys())
@@ -114,11 +116,11 @@ def find_best_per_cvi(data_id):
 
 
     # Get all trial results in a list
-    if not os.path.exists(f"results/es/{data_id}.json"):
+    if not os.path.exists(Path(f"results/_es.json")):
         gr.Info("Attempted to find Best Configuration according to CVI , but no ES results were found in the results "
                 "folder.")
         return
-    with open(f"results/es/{data_id}.json", "r") as f:
+    with open(Path(f"results/_es.json"), "r") as f:
         es_results = json.load(f)
     all_configs = []
     for key in es_results:
@@ -182,20 +184,15 @@ def create_plots_from_es(best_config_per_cvi):
         no_clusters_found_per_best.append(len(set(best_config_per_cvi[key]["labels"])))
     counter = Counter(best_alg_count)
 
-    # ---> First Plot: Pie Chart
+    # ---> First Plot: Pie Chart (Number of times (per CVI) each algorithm was appointed "Best"
     pie_labels = list(counter.keys())
     pie_values = list(counter.values())
 
-    # Create the pie chart
     plt.figure(figsize=(6, 6))
-
-    # Title with font size and weight
     plt.title("Best Algorithm Count Per CVI", fontsize=14, fontweight='bold')
 
-    # Enhanced pie chart
-    plt.pie(
+    wedges, texts, autotexts = plt.pie(
         pie_values,
-        labels=pie_labels,
         autopct='%1.1f%%',
         startangle=90,
         colors=colors,  # Apply custom colors
@@ -203,10 +200,9 @@ def create_plots_from_es(best_config_per_cvi):
         wedgeprops={'edgecolor': 'black'}  # Add a border around the slices
     )
 
-    # Ensure the pie chart is circular
+    plt.legend(wedges, pie_labels,loc="lower right")
     plt.axis('equal')
 
-    # Save and close the figure
     plt.savefig("best_alg_pie.png", dpi=300)  # Increase dpi for better resolution
     plt.close()
 
@@ -235,6 +231,8 @@ def create_plots_from_es(best_config_per_cvi):
     # Save and close the figure with a higher resolution
     plt.savefig("no_clusters_hist.png", dpi=300)  # Save with high resolution for clarity
     plt.close()
+    print("\033[92m Plots created succesfully!")
+
 
 def exhaustive_search( data_id, df, json_input, operations_state):
     """
@@ -254,10 +252,23 @@ def exhaustive_search( data_id, df, json_input, operations_state):
             (4) Pie-chart Image - Content
             (5) Histogram Image - Content
             (6) Best Config per CVI - Content
+
+    Raises:
+        JSONDecodeError: When json that defines the parametric space is invalid. Additionally throws and error in UI.
     """
     clustering_methods = {"KMeans": KMeans, "DBSCAN": DBSCAN, "Agglomerative": AgglomerativeClustering,
                           "Affinity Propagation": AffinityPropagation, "Spectral Clustering": SpectralClustering}
-    json_input = transform_search_space(json.loads(json_input))
+
+    try:
+        json_input = json.loads(json_input)
+        print(json_input)
+    except JSONDecodeError :
+        raise gr.Error("Invalid JSON in parameter space definition")
+    except Exception as e:
+        raise gr.Error(str(e))
+
+
+    json_input = transform_search_space(json_input)
 
     param_combinations_per_alg = {}
     master = dict([(x,[]) for x in json_input.keys()])
@@ -293,7 +304,7 @@ def exhaustive_search( data_id, df, json_input, operations_state):
 
 
         # Save Results
-    with open(os.path.join(os.getcwd(), "results", "es", f"{data_id}.json"), "w") as f:
+    with open(os.path.join(os.getcwd(), "results", f"_es.json"), "w") as f:
             json.dump(master, f)
 
     best_config_per_cvi = find_best_per_cvi( data_id)
@@ -333,7 +344,7 @@ def create_scatterplot(data, labels):
     plt.figure(figsize=(8, 6))
     scatter = plt.scatter(data[:, 0], data[:, 1], c=labels, cmap=cmap, norm=norm, s=50)
     plt.colorbar(scatter, ticks=np.unique(labels))
-    plt.title("Dataset Scatterplot}")
+    plt.title("Dataset Scatterplot")
     plt.xlabel("Feature 1")
     plt.ylabel("Feature 2")
     plt.grid(True)
@@ -365,7 +376,10 @@ def on_best_cvi_change(cvi, best_config_per_cvi, df_reduced, df , df_needs_reduc
     methods = {"T-SNE": TSNE, "PCA": PCA, "MDS": MDS}
 
     # --- (1) ---
-    cache_best_config = best_config_per_cvi[cvi]
+    try:
+        cache_best_config = best_config_per_cvi[cvi]
+    except KeyError:
+        raise gr.Error(f"CVI: {cvi} was not calculated during model search.")
     best_config = f"Algorithm: {best_config_per_cvi[cvi]['algorithm']}\nParameters: {best_config_per_cvi[cvi]['params']}"
 
     # --- (2) ---
