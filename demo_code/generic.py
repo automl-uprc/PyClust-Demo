@@ -1,11 +1,12 @@
 """This script contains a collection of methods that function on demo load or when information
 to display is updated such as a meta-learner or a dataset being added to the repository. """
 import os
+import shutil
 
 import gradio as gr
 import json
 import pandas as pd
-
+from pathlib import Path
 
 def meta_learners_repository(ml_metadata_path="repository/meta_learners/meta-data.json"):
     """
@@ -140,3 +141,28 @@ def control_data_visibility(data_method):
         return gr.update(visible=True), gr.update(visible=False)
     else:
         return gr.update(visible=False), gr.update(visible=False)
+
+
+def on_add_data_to_repo(dataset_id, dataset, calculated_mf, best_alg_per_cvi, default_results_path="results/_es.json"):
+
+    if os.path.exists(Path(f"repository/datasets/{dataset_id}_data.csv")):
+        raise gr.Error("Dataset with the same id already present in repository.")
+
+    dataset_path = os.path.join(os.getcwd(), "repository", "datasets" )
+    mf_path = os.path.join(os.getcwd(), "repository", "meta_features" )
+    best_algs_path = os.path.join(os.getcwd(), "repository", "best_alg_per_cvi" )
+
+    # mf
+    dataset.to_csv(os.path.join(dataset_path, f"{dataset_id}_data.csv"))
+
+    with open(os.path.join(mf_path, f"{dataset_id}_mf.json"), "w") as f:
+        json.dump(calculated_mf, f, indent=4)
+
+    # best_algs
+    best_algs = {k : v['algorithm'] for k, v in best_alg_per_cvi.items()}
+    with open(os.path.join(best_algs_path, f"{dataset_id}_best_alg.json"), "w") as f:
+        json.dump(best_algs, f, indent=4)
+
+    # trial
+    shutil.copy(Path(default_results_path), Path(f"repository/trials/{dataset_id}_best_alg.json"))
+    return "<h2 style='text-align: right; color:#3ebefe;'>Dataset in Repository: ✅</h2>"

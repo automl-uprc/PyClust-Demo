@@ -13,7 +13,7 @@ mldf, ml_choices = meta_learners_repository()
 no_datasets = on_startup_read_no_datasets()
 
 
-with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code\demo_style.css") as demo:
+with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code/demo_style.css") as demo:
     # Cache data
     df = gr.State()
     data_id = gr.State()
@@ -125,6 +125,8 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code
 
         predict_btn.click(load_model_and_predict, inputs=[ml_model_choice, data_id ],
                           outputs=[prediction])
+        add_data_to_repo_btn.click(on_add_data_to_repo, inputs=[data_id, df, mf_calculated, best_config_per_cvi],
+                                   outputs=[add_data_to_repo_title])
     # <-----------------------------Exhaustive Search ✓-------------------------------------------------------------->
     with gr.Tab('(2) Parameter Search'):
         not_loaded_message = gr.Markdown("""
@@ -177,7 +179,7 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code
                 gr.Markdown("""Provided Dataset has more than two Features. 
                             Please select a method to reduce dimensions to 2.""")
 
-                reduction_choices = gr.Radio(choices=["PCA", "T-SNE", "MDS"], value="")
+                reduction_choices = gr.Radio(choices=["PCA", "T-SNE", "MDS"], value="PCA")
 
             with results_explore_column:
                 with gr.Row():
@@ -193,7 +195,7 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code
             # (1) Show plot if dataset_dim ==2 else: show reduction options
             best_config_index_dropdown.change(on_best_cvi_change,
                                               inputs=[best_config_index_dropdown, best_config_per_cvi, df_reduced, df,
-                                                      df_needs_reduction],
+                                                      df_needs_reduction, reduction_choices],
                                               outputs=[best_config, df_reduced, clusters_visualized])
 
     # <-----------------------------Repository --------------------------------------------------------->
@@ -205,7 +207,7 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code
             gr.Markdown("""
             A list of all the trained meta-learners along with their meta-data. 
             """)
-            gr.Dataframe(mldf, elem_id="small")
+            meta_learners_df  = gr.Dataframe(mldf, elem_id="small")
 
         with gr.Accordion("Train Meta Learner", elem_id="my_accordion"):
             gr.Markdown("""To train a new meta-learner please configure the following and press the "train button".""")
@@ -266,7 +268,8 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=r"demo_code
                                   [best_config_ml],
                            outputs=[ml_cm_img, ml_meta_data, meta_learner_trained])
 
-        ml_add_to_repo_btn.click(save_meta_learner, inputs=[meta_learner_trained, ml_id, ml_meta_data])
+        ml_add_to_repo_btn.click(save_meta_learner, inputs=[meta_learner_trained, ml_id, ml_meta_data],
+                                 outputs = [meta_learners_df, ml_model_choice])
 
     df.change(on_df_load, inputs=df, outputs=[df_needs_reduction, model_search_tab, clustering_exploration_tab,
                                               not_loaded_message])
@@ -291,4 +294,9 @@ if not os.path.isdir(mf_path):
 if not os.path.isdir(es_path):
     os.mkdir(es_path)
 
-demo.launch(share=False)
+if __name__ == "__main__":
+    os.makedirs("results", exist_ok=True)
+    os.makedirs("results/mf", exist_ok=True)
+    os.makedirs("results/es", exist_ok=True)
+    os.makedirs("results/plots", exist_ok=True)
+    demo.launch(server_name="127.0.0.1",share=False,debug=True, server_port=7861)
