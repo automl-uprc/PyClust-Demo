@@ -97,6 +97,7 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=os.path.joi
             download_mf_btn = gr.DownloadButton("Download (JSON)", visible=False)
             mf_calculated = gr.JSON()
 
+        # <-----------------------------Data Loading - Prediction------------------------------------->
         with gr.Accordion("Algorithm Selection!", open=False, elem_id="my_accordion"):
             prediction = gr.Markdown("")
             with gr.Column():
@@ -120,13 +121,12 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=os.path.joi
         data_method.change(control_data_visibility, inputs=data_method, outputs=[data_generation_row,
                                                                                  data_upload_row])
 
-        mf_calculate_btn.click(mf_process, inputs=[df, data_id, operations_complete], outputs=[mf_calculated, download_mf_btn,
-                                                                          operations_complete])  #
+        mf_calculate_btn.click(mf_process, inputs=[df, operations_complete], outputs=[mf_calculated, download_mf_btn,
+                                                                          operations_complete])
 
         predict_btn.click(load_model_and_predict, inputs=[ml_model_choice, data_id ],
                           outputs=[prediction])
-        add_data_to_repo_btn.click(on_add_data_to_repo, inputs=[data_id, df, mf_calculated, best_config_per_cvi],
-                                   outputs=[add_data_to_repo_title])
+
     # <-----------------------------Exhaustive Search ✓-------------------------------------------------------------->
     with gr.Tab('(2) Parameter Search'):
         not_loaded_message = gr.Markdown("""
@@ -197,10 +197,9 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=os.path.joi
                                               inputs=[best_config_index_dropdown, best_config_per_cvi, df_reduced, df,
                                                       df_needs_reduction, reduction_choices],
                                               outputs=[best_config, df_reduced, clusters_visualized])
-
     # <-----------------------------Repository --------------------------------------------------------->
     with gr.Tab('(3) Repository'):
-        gr.Markdown(
+        no_datasets_title = gr.Markdown(
             f"<h2 style='text-align: center; color:#3ebefe;'>Number of Datasets in The Repository: {no_datasets}</h2>")
 
         with gr.Accordion("Trained Meta-Learners", elem_id="my_accordion"):
@@ -271,6 +270,8 @@ with gr.Blocks(theme=gradio.themes.Default(text_size="lg"),css_paths=os.path.joi
         ml_add_to_repo_btn.click(save_meta_learner, inputs=[meta_learner_trained, ml_id, ml_meta_data],
                                  outputs = [meta_learners_df, ml_model_choice])
 
+    add_data_to_repo_btn.click(on_add_data_to_repo, inputs=[data_id, df, mf_calculated, best_config_per_cvi],
+                               outputs=[add_data_to_repo_title, no_datasets_title])
     df.change(on_df_load, inputs=df, outputs=[df_needs_reduction, model_search_tab, clustering_exploration_tab,
                                               not_loaded_message])
 
@@ -296,8 +297,6 @@ if not os.path.isdir(es_path):
 
 if __name__ == "__main__":
     os.makedirs("results", exist_ok=True)
-    os.makedirs("results/mf", exist_ok=True)
-    os.makedirs("results/es", exist_ok=True)
     os.makedirs("results/plots", exist_ok=True)
     os.makedirs("repository", exist_ok=True)
     os.makedirs("repository/best_alg_per_cvi", exist_ok=True)

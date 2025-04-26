@@ -153,7 +153,8 @@ def on_add_data_to_repo(dataset_id, dataset, calculated_mf, best_alg_per_cvi, de
     best_algs_path = os.path.join(os.getcwd(), "repository", "best_alg_per_cvi" )
 
     # mf
-    dataset.to_csv(os.path.join(dataset_path, f"{dataset_id}_data.csv"))
+    dataset = pd.DataFrame(dataset)
+    dataset.to_csv(os.path.join(dataset_path, f"{dataset_id}_data.csv"), index=False, header=False)
 
     with open(os.path.join(mf_path, f"{dataset_id}_mf.json"), "w") as f:
         json.dump(calculated_mf, f, indent=4)
@@ -165,4 +166,6 @@ def on_add_data_to_repo(dataset_id, dataset, calculated_mf, best_alg_per_cvi, de
 
     # trial
     shutil.copy(Path(default_results_path), Path(f"repository/trials/{dataset_id}_best_alg.json"))
-    return "<h2 style='text-align: right; color:#3ebefe;'>Dataset in Repository: ✅</h2>"
+    no_data = on_startup_read_no_datasets()
+    return ("<h2 style='text-align: right; color:#3ebefe;'>Dataset in Repository: ✅</h2>",
+            f"<h2 style='text-align: center; color:#3ebefe;'>Number of Datasets in The Repository: {no_data}</h2>")
