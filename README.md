@@ -7,7 +7,7 @@ PyClust is a tool that enables model search, meta-learning and evaluation tools 
 set of state-of-the art meta-features.
 
 - **Model Search**: Out of the box grid search implementation with easy to define parameter space in the graphical 
-interface 46 Cluster validity indices as developed in the pyclustkit library. 
+interface 45 internal Cluster Validity Indices (CVIs) as developed in the pyclustkit library. 
 
 PyClust is built as a Python library that can be installed through PyPI, but can also be used through a Gradio-based user interface and Docker image.
 
@@ -37,12 +37,16 @@ pip install pyclustkit
 PyClust offers easy to use commands to extract several meta-features from the literature
 ```python
 from pyclustkit.metalearning import MFExtractor
-mfe = MFExtractor(D).calculate_mf(category="descriptive")
+mfe = MFExtractor(D)
+mfe.calculate_mf(category="descriptive")
+print(mfe.search_mf(search_type="values"))
 ```
 or optimally compute internal CVIs
 ```python
 from pyclustkit.eval import CVIToolbox
-cvit = CVIToolbox(D, labels).calculate_cvi(cvi=["dunn", "silhouette"])
+cvit = CVIToolbox(D, labels)
+cvit.calculate_cvi(cvi=["dunn", "silhouette"])
+print(cvit.cvi_results)
 ```
 
 - ✅ By cloning the GitHub repository:
