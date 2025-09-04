@@ -1,7 +1,10 @@
-# PyClust-Demo
- 
+![PyClustUI](artifacts/pyclustui_logo.jpg)
+
+# PyClustUI
+
+
 ## ✏️ Overview
-PyClust is a tool that enables model search, meta-learning and evaluation tools for clustering. 
+PyClustUI is a graphical tool for meta-learning repository creation for clustering harnessing the capabilities of the python library **pyclustkit**. Additionally it encompasses various utilities for not only populating the meta-learning repository with a few clicks but also methods to train meta-learners on top of it capable of algorithm selection, one of the most popular meta-learning tasks. 
 
 - **Meta Learning** : Use one of the pretrained meta-learners for algorithm selection or train your own based on a rich 
 set of state-of-the art meta-features.
@@ -27,37 +30,18 @@ The main software needed are:
 
 ## 🔁 Installation
 
-There are three ways that you can use PyClust:
+There are two ways that you can use PyClustUI:
 
-- ✅ By installing PyClust library:
-```comandline
-pip install pyclustkit
-```
-
-PyClust offers easy to use commands to extract several meta-features from the literature
-```python
-from pyclustkit.metalearning import MFExtractor
-mfe = MFExtractor(D)
-mfe.calculate_mf(category="descriptive")
-print(mfe.search_mf(search_type="values"))
-```
-or optimally compute internal CVIs
-```python
-from pyclustkit.eval import CVIToolbox
-cvit = CVIToolbox(D, labels)
-cvit.calculate_cvi(cvi=["dunn", "silhouette"])
-print(cvit.cvi_results)
-```
 
 - ✅ By cloning the GitHub repository:
 
 You can clone this repository with the following commands
 ```commandline
-git clone https://github.com/your-username/PyClust-Demo.git  
+git clone https://github.com/your-username/PyClustUI.git  
 cd PyClust-Demo   
 ```
 
-and run main() ti use the Gradio-based user interface
+and run main.py to use the Gradio-based user interface
 ```commandline
 python main.py
 ```
@@ -73,7 +57,7 @@ After the successful run of the image, open a browser and go to
 localhost:7861
 ```
 and the user interface will be accessible
-![App Screenshot](docker.png)
+![App Screenshot](artifacts/pyclustui_logo.jpg)
 
 
 ## 🤝 Contributions/Contact
@@ -81,7 +65,3 @@ Contributions are welcome! Please open an issue or submit a pull request if you'
 
 Mail us  automl.uprc@gmail.com
 
-## Cite this Work
-If you find that you have used this demo as part of your research please consider citing using the following, 
-
-*----*

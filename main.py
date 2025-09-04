@@ -297,6 +297,7 @@ if not os.path.isdir(es_path):
 
 if __name__ == "__main__":
     os.makedirs("results", exist_ok=True)
+    os.makedirs("temp", exist_ok=True)
     os.makedirs("results/plots", exist_ok=True)
     os.makedirs("repository", exist_ok=True)
     os.makedirs("repository/best_alg_per_cvi", exist_ok=True)

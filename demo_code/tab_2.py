@@ -203,7 +203,7 @@ def create_plots_from_es(best_config_per_cvi):
     plt.legend(wedges, pie_labels,loc="lower right")
     plt.axis('equal')
 
-    plt.savefig("best_alg_pie.png", dpi=300)  # Increase dpi for better resolution
+    plt.savefig("temp/best_alg_pie.png", dpi=300)  # Increase dpi for better resolution
     plt.close()
 
     # ---> Second Plot: Histogram
@@ -229,7 +229,7 @@ def create_plots_from_es(best_config_per_cvi):
     plt.ylabel("Frequency", fontsize=12)
 
     # Save and close the figure with a higher resolution
-    plt.savefig("no_clusters_hist.png", dpi=300)  # Save with high resolution for clarity
+    plt.savefig("temp/no_clusters_hist.png", dpi=300)  # Save with high resolution for clarity
     plt.close()
     print("\033[92m Plots created succesfully!")
 
@@ -312,8 +312,8 @@ def exhaustive_search( data_id, df, json_input, operations_state):
 
     operations_state["configurations-search"] = True
     return ( gr.update(visible=True, value="<h2 style= text-align:center;>ES success</h2>"),
-                gr.update(visible=True), "best_alg_pie.png",
-                "no_clusters_hist.png", best_config_per_cvi,
+                gr.update(visible=True), "temp/best_alg_pie.png",
+                "temp/no_clusters_hist.png", best_config_per_cvi,
                 operations_state)
 
 # -------------------------------------------------Tab 2-------------------------

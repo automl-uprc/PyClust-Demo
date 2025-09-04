@@ -1,8 +1,9 @@
 PyClust-Eval/
 .idea
 .gradio
-
-results
+.venv 
+temp/
+results/
 /repository/datasets/d3_data.csv
 /repository/datasets/data_1_data.csv
 /repository/datasets/dd_data.csv
